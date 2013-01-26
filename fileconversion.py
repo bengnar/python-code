@@ -22,7 +22,7 @@ import RF; reload(RF)
 
 prefix = {'b' : 'RF', 'r' : 'RR', 'q' : 'QU', 'v' : 'VOC', 'i' : 'IS', 'P' : 'RF'}
 
-electrodetype = 'pen'
+electrodetype = 'tungsten'
 electrodeinfo = {'fourbyfour' : {'nchan' : 16, 'npen' : 4, 'chanorder' : np.array([[1, 7, 13, 14], [3, 4, 10, 16], [2, 8, 12, 11], [6, 5, 9, 15]]), 'npen' : 4}, 'tungsten' : {'nchan' : 4, 'npen' : 4, 'chanorder' : None}, 'pen' : {'nchan' : 1, 'npen' : 1, 'chanorder' : None}}
 
 stimulusinfo = {'RF' : {'nbins' : 333}, 'RR' : {'nbins' : 6000}, 'VOC' : {'nbins' : 20000}}
@@ -131,32 +131,6 @@ def fileconversion_block(experiment, blocknum, blockID, blockrep, coords = None,
 
 	b_.close()
 
-def load_coords(experiment, v = True):
-	
-	try:
-		coords = np.loadtxt(os.path.join(basedir, experiment, 'experimentfiles', experiment + '.txt'), ndmin = 1)
-		if v:
-			print 'Found coordinates at %s' % os.path.join(basedir, experiment, 'experimentfiles', experiment + '.txt')
-	except:
-		coords = np.nan
-		if v:
-			print 'Coordinates not found'
-			
-	return coords
-	
-def load_cfs(experiment, v = True):
-
-	try:
-		cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'), 'float32', ndmin = 1)
-		if v:
-			print 'Found CFs at %s' % os.path.join(basedir, experiment, 'cfs.txt')
-	except:
-		cfs = np.nan
-		if v:
-			print 'CFs not found'
-	
-	return cfs
-
 def unit(u_, Data0, cc, blockID, nbins = 500):
 	
 	# number of time bins to include in the LFP array
@@ -236,6 +210,31 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 		rf = RF.calc_rf(rast, stimID)
 		u_.create_dataset('rf', data = rf, compression = 'gzip')
 	
+def load_coords(experiment, v = True):
+	
+	try:
+		coords = np.loadtxt(os.path.join(basedir, experiment, 'experimentfiles', experiment + '.txt'), ndmin = 1)
+		if v:
+			print 'Found coordinates at %s' % os.path.join(basedir, experiment, 'experimentfiles', experiment + '.txt')
+	except:
+		coords = np.nan
+		if v:
+			print 'Coordinates not found'
+			
+	return coords
+	
+def load_cfs(experiment, v = True):
+
+	try:
+		cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'), 'float32', ndmin = 1)
+		if v:
+			print 'Found CFs at %s' % os.path.join(basedir, experiment, 'cfs.txt')
+	except:
+		cfs = np.nan
+		if v:
+			print 'CFs not found'
+	
+	return cfs
 	
 def add_coords(u_, coords, unitnum):
 	

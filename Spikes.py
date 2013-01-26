@@ -90,7 +90,7 @@ def calc_psth_by_stim(rast, stimparams, bins = None):
 	
 	usp = []
 	for i in range(nstimparams):	
-		usp.append(list(np.int32(np.unique(stimparams[:, i]))))
+		usp.append(list(np.unique(stimparams[:, i])))
 
 	nparamlevels = np.empty(nstimparams, dtype = np.int32)
 	for i in range(nstimparams):
@@ -136,7 +136,7 @@ def calc_psth_by_stim(rast, stimparams, bins = None):
 	for m, n in zip(combinations, combinations_ix):
 		ix = RF.get_trials(stimparams, m)
 		psth2_ = pd.TimeSeries(rast[ix, :].sum(0), index = bins2)
-		psth2[np.array(n), :] = psth2_.groupby(bins2).apply(sum)
+		psth2[tuple(n)] = psth2_.groupby(bins2).apply(sum)
 				
 	return psth2, usp
 

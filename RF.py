@@ -14,7 +14,7 @@ import RF; reload(RF)
 import RR; reload(RR)
 
 # basedir = '/Users/robert/Desktop/Fmr1_RR'
-basedir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
+basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 
 def calc_rf(rast, stimparams, resp_on = 57, resp_off = 80, normed = False, smooth = False):
 	'''
@@ -81,7 +81,7 @@ def calc_lfp_rf(lfp, stimparams, onset = 0.055, offset = 0.08):
 
 	return rf
 
-def add_bf_man(experiment):
+def add_bf_man(experiment, npensperblock = 4):
 	'''
 	Runs through all of the units and allows you to click on the CF. Clicking a negative x-coordinate
 	results in the unit being discarded (renamed to _RR###.h5)
@@ -92,37 +92,46 @@ def add_bf_man(experiment):
 	ax = fig.add_subplot(111);
 
 	rf_blocks = glob.glob(os.path.join(basedir, experiment, 'fileconversion', '*RF*.h5'))
-
+	print basedir, experiment
+	print rf_blocks
 	cfs = []
 	badunits = []
 	for rf_block in rf_blocks:
+		f = h5py.File(rf_block, 'r')
+
 		blockname = os.path.splitext(os.path.split(rf_block)[1])[0]
 		blocknum = np.int32(blockname.split('RF')[1])
-		f = h5py.File(rf_block, 'r')
-		rf = f['rf'].value
+	
+		rf_pens = [k for k in f.keys() if 'site' in k]
+		assert len(rf_pens) == npensperblock
+		for i, rf_pen in enumerate(rf_pens):
+			pennum = blocknum*npensperblock + i + 1
+			rf = f[rf_pen]['rf'].value
 
-		ax.imshow(rf, aspect = 'auto', interpolation = 'nearest')
-		xlim = ax.get_xlim()
-		ylim = ax.get_ylim()
-		ax.set_xlim([xlim[0]-2, xlim[1]])
-		ax.set_ylim([ylim[0]-2, ylim[1]])
-		ax.set_title(blockname)
-		plt.show()
-		xy = plt.ginput(1, timeout = -1)[0]
-		xy = np.array(xy)
-		if np.prod(xy)>0:
+			plot_RF(rf, ax = ax)
+			xlim = ax.get_xlim()
+			ylim = ax.get_ylim()
+			ax.set_xlim([xlim[0]-2, xlim[1]])
+			ax.set_ylim([ylim[0]-2, ylim[1]])
+			ax.set_title(pennum)
+			plt.show()
+			xy = plt.ginput(1, timeout = -1)[0]
 			xy = np.array(xy)
-			cfs.append(np.hstack((blocknum, xy)))
-		else:
-			badunits.append(blocknum)
-		ax.cla();
-		f.close();
+			if np.prod(xy)>0:
+				xy = np.array(xy)
+				cfs.append(np.hstack((pennum, xy)))
+			else:
+				badunits.append(pennum)
+			ax.cla()
 
-		savepath = os.path.join(basedir, experiment, 'cfs.txt')
-		np.savetxt(savepath, cfs)
 
-	print badunits
+			savepath = os.path.join(basedir, experiment, 'cfs.txt')
+			np.savetxt(savepath, cfs)
 
+		print badunits
+
+	f.close()
+	plt.close(fig)
 
 def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, makechanges = False, verbose = False):
 	'''
