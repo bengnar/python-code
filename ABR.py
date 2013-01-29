@@ -1,7 +1,7 @@
 import os, glob, re
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import signal
+from scipy.signal import signal, butter
 import misc
 
 # basedir = '/Volumes/BOB_SAGET/Fmr1_Heesoo/ABR'
