@@ -195,9 +195,12 @@ def filter_abr(x, duration = 0.0099424, nsamples = 244, Wn = 0.05, btype = 'high
 
 	F = nsamples / duration
 	b, a = butter(10, Wn = Wn, btype = btype)
-	x_filt = np.empty_like(x)
-	for i in range(x.shape[1]):
-		x_filt[:, i] = filtfilt(b, a, x[:, i])
+	if len(x.shape)==1:
+		x_filt = filtfilt(b, a, x)
+	elif len(x.shape)>1:
+		x_filt = np.empty_like(x)
+		for i in range(x.shape[1]):
+			x_filt[:, i] = filtfilt(b, a, x[:, i])
 	return x_filt
 
 def plot_peak_gen_vs_exp(measure = 'ampl'):
