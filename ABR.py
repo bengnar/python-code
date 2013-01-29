@@ -203,7 +203,7 @@ def filter_abr(x, duration = 0.0099424, nsamples = 244, Wn = 0.05, btype = 'high
 			x_filt[:, i] = filtfilt(b, a, x[:, i])
 	return x_filt
 
-def plot_peak_gen_vs_exp(measure = 'ampl'):
+def plot_peak_gen_vs_exp(x, measure = 'ampl'):
 	'''
 	'''
 	gens = ['wt', 'ko']
@@ -247,7 +247,7 @@ def plot_peak_gen_vs_exp(measure = 'ampl'):
 
 	plt.show()	
 
-def plot_threshold_gen_vs_exp():
+def plot_threshold_gen_vs_exp(x):
 	'''
 	'''
 	gens = ['wt', 'ko']

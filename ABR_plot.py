@@ -4,6 +4,51 @@ import matplotlib.pyplot as plt
 from scipy import signal
 import misc
 
+
+basedir = '/Users/robert/Documents/Work/Bao/Fmr1_Heesoo/ABR'
+duration = 0.099424
+nsamples = 244
+
+'''
+redo peak amplitudes using peak-trough height
+'''
+t = np.linspace(0, duration, nsamples)
+x = np.load(os.path.join(basedir, 'peaks.npz'))['arr_0']
+for i in range(x.size):
+	x_ = x[i]
+	gen = x_['gen']
+	exp = x_['exp']
+	animal = x_['animal']
+	freq = x_['freq']
+	atten = x_['atten']
+
+	abr = np.load(os.path.join(basedir, 'fileconversion', '%s_%s_%1.1i_ABR.npz' % (gen, exp, animal)))['arr_0']
+	
+	abr_ = abr[np.vstack((abr['gen']==gen, abr['exp']==exp, abr['animal']==animal, abr['freq']==freq, abr['atten']==atten)).all(0)]['data'][0, :]
+	abr_filt = ABR.filter_abr(abr_)
+	
+	lats = np.hstack((x_['lat'], x_['lat'][-1]+0.0015))*10 # *10 because i got the times wrong
+	for j in range(lats.size-1):
+		[_, lat_ix_pe, _] = misc.closest(t, lats[j]) # peak ix
+		[_, lat_ix_tr, _] = misc.closest(t, lats[j+1]) # trough ix
+		ampl_peak = abr_filt[(lat_ix-2):(lat_ix+2)].max()
+		ampl_trough = abr_filt[lat_ix_pe:lat_ix_tr].min()
+		ampl_ = ampl_peak - ampl_trough
+		
+		x[i]['ampl'][j] = ampl_
+
+	print x[i]['ampl']
+
+	# fig = plt.figure()
+	# ax = fig.add_subplot(111)
+	# ax.plot(abr_filt)
+	# ax.axvline(lat_ix_pe, color = 'r', ls = '--')
+	# ax.axvline(lat_ix_tr, color = 'r', ls = '--')
+	# ax.axhline(ampl_peak, color = 'r', ls = '--')
+	# ax.axhline(ampl_trough, color = 'r', ls = '--')
+	
+
+
 '''redo peak amplitudes using new filtering...'''
 t = np.linspace(0, duration, nsamples)
 for i in range(x.size):
