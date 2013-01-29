@@ -111,25 +111,22 @@ def fileconversion_block(experiment, blocknum, blockID, blockrep, coords = None,
 		blockstr = '%s_%1.1i' % (blockstr, blockrep)
 	print '\t%s' % blockstr
 
-	savepath = os.path.join(basedir, experiment, 'fileconversion', blockstr + '.h5')
-	b_ = h5py.File(savepath, 'w')
-
 	for cc in range(nchan):
-	
-		u_ = b_.create_group('site%2.2i' % cc)
-		unit(u_, Data0, cc, blockID, nbins = stimulusinfo['nbins'])
 
 		if chanorder is None:
 			siteno = ((blocknum-1)*npen) + cc + 1
 		elif len(chanorder.shape) == 2:
 			siteno =((blocknum-1)*npen) + (chanorder == cc+1).nonzero()[1][0]+1
 			print cc+1, siteno
-			
+	
+		savepath = os.path.join(basedir, experiment, 'fileconversion', '%s%3.3u.h5' % (prefix[blockID[0]], siteno))
+		u_ = h5py.File(savepath, 'w')
+		unit(u_, Data0, cc, blockID, nbins = stimulusinfo['nbins'])
 
 		add_coords(u_, coords, siteno)
 		add_cfs(u_, cfs, siteno)
-
-	b_.close()
+		
+		u_.close()
 
 def unit(u_, Data0, cc, blockID, nbins = 500):
 	
@@ -175,7 +172,6 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 			
 		rast[tt, spktime] = 1
 		if spktime.size > 0:
-			# spktimes = np.append(spktimes, spktime)
 			spktrials = np.append(spktrials, np.ones(spktime.size) * tt)
 			spkwaveform = np.concatenate((spkwaveform, trial['CH'][0][cc]['spkwaveform'].T), 0)
 			
@@ -193,12 +189,9 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 	if spktime.size > 0:
 		spkwaveform = spkwaveform[~spk_mask]
 	stimID = stimID[~trial_mask, :]
-	b_ = u_.parent
-	if not 'stimID' in b_:
-		b_.create_dataset('stimID', data = stimID)
-	
 	
 	# save out to file
+	u_.create_dataset('stimID', data = stimID)
 	u_.create_dataset('chan', data = cc)
 	u_.create_dataset('blockID', data = blockID)
 	# add stimulus ID datasets to this stimset on this unit
@@ -209,6 +202,7 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 	if blockID.startswith('b'):
 		rf = RF.calc_rf(rast, stimID)
 		u_.create_dataset('rf', data = rf, compression = 'gzip')
+	
 	
 def load_coords(experiment, v = True):
 	
@@ -295,3 +289,8 @@ def unpack(f, params = ['rast', 'stimID']):
 	for param in params:
 		val.append(f[param].value)
 	return val
+
+	
+	
+	
+	
