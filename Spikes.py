@@ -84,7 +84,7 @@ def calc_rast(spktimes, spktrials, ntrials, nbins):
 		
 		return rast
 
-def calc_psth_by_stim(rast, stimparams, bins = None):
+def calc_psth_by_stim(rast, stimparams, bins = 0.001):
 
 	nstimparams = stimparams.shape[1]
 	
@@ -105,15 +105,11 @@ def calc_psth_by_stim(rast, stimparams, bins = None):
 	'''
 	dur_ms = rast.shape[1] # number of milliseconds
 	t_ms = np.arange(dur_ms) # time indices in ms
-	if bins is None:
-		nbins = dur_ms
-		bins = np.arange(nbins)/1000
-	elif type(bins) in [int, np.int32]:
+	if type(bins) in [int, np.int32]:
 		nbins = bins
 		bins = np.linspace(0, dur_ms, nbins) / 1000
 	elif type(bins) is np.ndarray:
-		nbins = bins.size
-	bins2 = np.digitize(t_ms, bins*1000)-1 # map ms time bins onto new time bins
+		nbins = bins.size-1
 	
 
 	assert np.unique(ntrials_per_stim).size == 1
@@ -121,7 +117,7 @@ def calc_psth_by_stim(rast, stimparams, bins = None):
 	ntrials = np.int32(ntrials_per_stim[0])
 	
 	psth_shape = np.hstack((nparamlevels, nbins))
-	psth2 = np.zeros(psth_shape)
+	psth = np.zeros(psth_shape)
 	
 	combinations = []
 	combinations_ix = []
@@ -135,10 +131,11 @@ def calc_psth_by_stim(rast, stimparams, bins = None):
 		
 	for m, n in zip(combinations, combinations_ix):
 		ix = RF.get_trials(stimparams, m)
-		psth2_ = pd.TimeSeries(rast[ix, :].sum(0), index = bins2)
-		psth2[tuple(n)] = psth2_.groupby(bins2).apply(sum)
+		spktimes_ = rast2spktimes(rast[ix, :])
+		psth_, edges_ = np.histogram(spktimes_, bins = bins)
+		psth[tuple(n)] = psth_
 				
-	return psth2, usp
+	return psth, usp
 
 
 def calc_rast_by_stim(rast, stimparams, bins = None):
@@ -278,8 +275,18 @@ def rast2spktimes(rast, ix_times):
 		i += bin
 	
 	return spktimes
+
+def make_spktimes_matrix(rast_shape):
 	
+	ntrials, npts = rast_shape
+	spktimes_mat = np.tile(np.arange(0, npts), (ntrials, 1))
+	return spktimes_mat
+
+def rast2spktimes(rast):
 	
+	spktimes_mat = make_spktimes_matrix(rast.shape)
+	spktimes = spktimes_mat[rast.astype(np.bool)] / 1000.
+	return spktimes
 	
 	
 	

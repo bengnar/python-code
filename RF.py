@@ -16,6 +16,27 @@ import RR; reload(RR)
 # basedir = '/Users/robert/Desktop/Fmr1_RR'
 basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 
+ix2freq = 1000 * 2**(np.arange(0, 64)/10.)
+def get_ix2freq():
+	return ix2freq
+
+def load_cf(experiment, basedir = basedir, v = True):
+	
+	try:
+		cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'), 'float32', ndmin = 1)
+		if v:
+			print 'Found CFs at %s' % os.path.join(basedir, experiment, 'cfs.txt')
+	except:
+		cfs = np.nan
+		if v:
+			print 'CFs not found'
+	
+	return cfs
+	
+def find_cf(cfs, penno):
+	
+	return cfs[cfs[:, 0]==penno, 1]
+
 def calc_rf(rast, stimparams, resp_on = 57, resp_off = 80, normed = False, smooth = False):
 	'''
 	Output:
@@ -322,24 +343,20 @@ def remove_no_cf_units(experiment):
 	print experiment
 
 	cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'))
-	files = glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5'))
-	for f in files:
-		absol, rel = os.path.split(f)
-		p = re.compile('(\d+)\.h5')
+	fpaths = glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5'))
+	p = re.compile('(\d+)\.h5')
+
+	for fpath in fpaths:
+		absol, rel = os.path.split(fpath)
+
 		unitnum = np.int32(p.findall(rel))[0]
 		cf = cfs[cfs[:, 0] == unitnum, 1]
+		associated_fpaths = glob.glob(os.path.join(basedir, experiment, 'fileconversion', '*%3.3u.h5' % unitnum))
 		if (cf.size) == 0 or np.isnan(cf):
-			os.rename(f, os.path.join(absol, '_'+rel))
-			rel_rr = re.sub('RF', 'RR', rel) # substitute RR for RF in the rel
-			try:
-				os.rename(os.path.join(absol, rel_rr), os.path.join(absol, '_' + rel_rr))
-			except:
-				pass
-			png_rr = re.sub('.h5', '.png', rel_rr)
-			try: # remove the contact sheet if it exists
-				os.remove(os.path.join(basedir, experiment, 'analysis', png_rr))
-			except:
-				print 'Could not remove %s' % png_rr
+			for apath in associated_fpaths:
+				_, rel = os.path.split(apath)
+				os.rename(apath, os.path.join(absol, '_'+rel))
+
 
 def remove_units(experiments, kind = 'nonA1'):
 	'''

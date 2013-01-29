@@ -1472,8 +1472,25 @@ for (s_, u_, bw_lr) in bw:
 	u['bw'][2] = np.abs(bw_lr[1]-bw_lr[0])
 
 
+basedir = '/Volumes/BOB_SAGET/Fmr1_voc/voc_ko_nai_20130116'
+files = glob.glob(os.path.join(basedir, 'fileconversion', 'RR*.h5'))
+for file0 in files:
+	f = h5py.File(file0, 'r')
+	stimparams = f['stimID'].value
+	for siteno in range(4):
+		sitekey = 'site%2.2u' % siteno
+		rast = f[sitekey]['rast'].value
+		rast = rast[:-1, :]
+		stimparams = stimparams[2:, :]
+		psth, usp = Spikes.calc_psth_by_stim(rast, stimparams, bins = np.arange(0, 6, 0.050))
 
-
+		fig = plt.figure()
+		for i in range(3):
+			for j in range(7):
+				ax = fig.add_subplot(7, 3, i+(j*3))
+				ax.plot(psth[i, j, :])
+		
+	f.close()
 
 
 

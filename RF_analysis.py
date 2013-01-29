@@ -23,6 +23,7 @@ nbins = 333
 stim_on = 50
 ix2freq = 1000 * 2**(np.arange(0, 64)/10.)
 
+
 # dtype = np.dtype([('group', 'S2'), ('sess', 'S20'), ('unit', 'i8'), ('cf', 'f4'), \
 # 	('vs_noise', 'f4'), ('vs_tone', 'f4'), ('p_noise', 'f4'), ('p_tone', 'f4'), \
 # 	('dist_il_noise', 'f4'), ('dist_il_tone', 'f4'), \
@@ -40,6 +41,9 @@ dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i8'),
 	('base_mean', 'f4'), ('ev_mean', 'f4')])
 	
 p = re.compile('(\d+).h5')
+
+def get_ix2freq():
+	return ix2freq
 
 def characterize(sesss = sesss, experiment = 'Fmr1_RR', pplot = True, verbose = False):
 
