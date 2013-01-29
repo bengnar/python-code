@@ -216,7 +216,7 @@ def plot_peak_gen_vs_exp(x, measure = 'ampl'):
 	ax = []
 	for i in range(10):
 		ax.append(fig.add_subplot(2, 5, i+1))
-		ax[-1].set_title('Peak %i' % (i+1))
+		ax[-1].set_title('Peak %i' % ((i%5)+1))
 
 	a = np.arange(5)
 	for f, freq in enumerate(freqs):
@@ -239,10 +239,10 @@ def plot_peak_gen_vs_exp(x, measure = 'ampl'):
 
 	misc.sameyaxis(ax)
 	misc.samexaxis(ax, [-1, 2])
-	for i in range(5):
+	for i in range(10):
 		ax[i].set_xticks([0, 1])
 		ax[i].set_xticklabels(exps)
-	for i in range(1, 5):
+	for i in range(1, 10):
 		ax[i].set_yticklabels([])
 
 	plt.show()	

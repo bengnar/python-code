@@ -2,6 +2,7 @@ import os, glob, re
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
+import ABR
 import misc
 
 
@@ -21,7 +22,8 @@ for i in range(x.size):
 	animal = x_['animal']
 	freq = x_['freq']
 	atten = x_['atten']
-
+	print x_['ampl']
+	print x_['lat']
 	abr = np.load(os.path.join(basedir, 'fileconversion', '%s_%s_%1.1i_ABR.npz' % (gen, exp, animal)))['arr_0']
 	
 	abr_ = abr[np.vstack((abr['gen']==gen, abr['exp']==exp, abr['animal']==animal, abr['freq']==freq, abr['atten']==atten)).all(0)]['data'][0, :]
@@ -31,14 +33,16 @@ for i in range(x.size):
 	for j in range(lats.size-1):
 		[_, lat_ix_pe, _] = misc.closest(t, lats[j]) # peak ix
 		[_, lat_ix_tr, _] = misc.closest(t, lats[j+1]) # trough ix
-		ampl_peak = abr_filt[(lat_ix-2):(lat_ix+2)].max()
+		ampl_peak = abr_filt[(lat_ix_pe-2):(lat_ix_pe+2)].max()
 		ampl_trough = abr_filt[lat_ix_pe:lat_ix_tr].min()
 		ampl_ = ampl_peak - ampl_trough
 		
 		x[i]['ampl'][j] = ampl_
+		x[i]['lat'][j] = lats[j]
+
 
 	print x[i]['ampl']
-
+	print x[i]['lat']
 	# fig = plt.figure()
 	# ax = fig.add_subplot(111)
 	# ax.plot(abr_filt)
