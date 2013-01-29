@@ -1,15 +1,13 @@
 import numpy as np
 import os, glob
-from PIL import Image
 import matplotlib.pyplot as plt
-from scipy import ndimage
 import glob
 import h5py
 import re
 import pylab
 from scipy.ndimage import gaussian_filter
 from scipy.stats import linregress
-import Spikes; #reload(Spikes)
+import Spikes
 import RF; reload(RF)
 import RR; reload(RR)
 
@@ -17,6 +15,7 @@ import RR; reload(RR)
 basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 
 ix2freq = 1000 * 2**(np.arange(0, 64)/10.)
+
 def get_ix2freq():
 	return ix2freq
 
@@ -102,54 +101,52 @@ def calc_lfp_rf(lfp, stimparams, onset = 0.055, offset = 0.08):
 
 	return rf
 
-def add_bf_man(experiment, npensperblock = 4):
+def add_bf_man(experiment):
 	'''
 	Runs through all of the units and allows you to click on the CF. Clicking a negative x-coordinate
 	results in the unit being discarded (renamed to _RR###.h5)
 	For valid units, the CF and threshold are saved in a text file called cfs.txt
 	'''
 
-	fig = plt.figure();
-	ax = fig.add_subplot(111);
 
 	rf_blocks = glob.glob(os.path.join(basedir, experiment, 'fileconversion', '*RF*.h5'))
-	print basedir, experiment
-	print rf_blocks
 	cfs = []
 	badunits = []
 	for rf_block in rf_blocks:
+				
+		fig = plt.figure();
+		ax = fig.add_subplot(111);
+		
+		print rf_block
 		f = h5py.File(rf_block, 'r')
 
 		blockname = os.path.splitext(os.path.split(rf_block)[1])[0]
-		blocknum = np.int32(blockname.split('RF')[1])
+		pennum = np.int32(blockname.split('RF')[1])
 	
-		rf_pens = [k for k in f.keys() if 'site' in k]
-		assert len(rf_pens) == npensperblock
-		for i, rf_pen in enumerate(rf_pens):
-			pennum = blocknum*npensperblock + i + 1
-			rf = f[rf_pen]['rf'].value
+		rf = f['rf'].value
 
-			plot_RF(rf, ax = ax)
-			xlim = ax.get_xlim()
-			ylim = ax.get_ylim()
-			ax.set_xlim([xlim[0]-2, xlim[1]])
-			ax.set_ylim([ylim[0]-2, ylim[1]])
-			ax.set_title(pennum)
-			plt.show()
-			xy = plt.ginput(1, timeout = -1)[0]
+		RF.plot_RF(rf, ax = ax)
+		xlim = ax.get_xlim()
+		ylim = ax.get_ylim()
+		ax.set_xlim([xlim[0]-2, xlim[1]])
+		ax.set_ylim([ylim[0], ylim[1]-1])
+		ax.set_title(pennum)
+		plt.show()
+		xy = plt.ginput(1, timeout = -1)[0]
+		xy = np.array(xy)
+		if np.prod(xy)>0:
 			xy = np.array(xy)
-			if np.prod(xy)>0:
-				xy = np.array(xy)
-				cfs.append(np.hstack((pennum, xy)))
-			else:
-				badunits.append(pennum)
-			ax.cla()
+			cfs.append(np.hstack((pennum, xy)))
+		else:
+			badunits.append(pennum)
+
+		plt.close(fig)
 
 
-			savepath = os.path.join(basedir, experiment, 'cfs.txt')
-			np.savetxt(savepath, cfs)
+		savepath = os.path.join(basedir, experiment, 'cfs.txt')
+		np.savetxt(savepath, cfs)
 
-		print badunits
+		# print badunits
 
 	f.close()
 	plt.close(fig)
