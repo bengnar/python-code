@@ -1,5 +1,5 @@
 import h5py, os, glob, re
-import RF, Spikes, misc
+import RF, RR, Spikes, misc
 from fileconversion import load_cfs
 
 basedir = '/Volumes/BOB_SAGET/Fmr1_voc/voc_ko_nai_20130116'
@@ -25,7 +25,7 @@ for rf_path in rf_paths:
 	cfs = load_cfs(experiment)
 	cf_ix = np.int32(np.round(RF.find_cf(cfs, np.int32(penno))))
 	cf = ix2freq[20:][cf_ix]
-	freq_played = 
+
 	# perform analysis 
 	if len(rr_path) > 0:
 		
@@ -34,8 +34,8 @@ for rf_path in rf_paths:
 		rr_stimparams = rr_file['stimID'].value
 		rr_file.close()
 		
-		rr_rast = rr_rast[1:, :]
-		rr_stimparams = rr_stimparams[:-1, :]
+		# rr_rast = rr_rast[1:, :]
+		# rr_stimparams = rr_stimparams[:-1, :]
 		ufreqs = np.unique(rr_stimparams[:, 0])
 		urrs = np.unique(rr_stimparams[:, 1])
 		freq_played, freq_ix_played, _ = misc.closest(ufreqs, cf, log = True)
@@ -64,8 +64,8 @@ for rf_path in rf_paths:
 		voc_stimparams = voc_file['stimID'].value
 		voc_file.close()
 		
-		voc_rast = voc_rast[1:, :]
-		voc_stimparams = voc_stimparams[:-1, :]
+		# voc_rast = voc_rast[1:, :]
+		# voc_stimparams = voc_stimparams[:-1, :]
 		voc_stimparams = voc_stimparams[:, 0]
 		voc_stimparams = np.hstack((voc_stimparams[..., np.newaxis], np.zeros((voc_stimparams.size, 1))))
 		uvocs = np.unique(voc_stimparams[:, 0])
