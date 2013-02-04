@@ -193,7 +193,6 @@ def convert(fname):
 
 def filter_abr(x, duration = 0.0099424, nsamples = 244, Wn = 0.05, btype = 'high'):
 
-	F = nsamples / duration
 	b, a = butter(10, Wn = Wn, btype = btype)
 	if len(x.shape)==1:
 		x_filt = filtfilt(b, a, x)
