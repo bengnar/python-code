@@ -343,7 +343,7 @@ def get_path():
 	root = Tkinter.Tk()
 	root.withdraw()
 	
-	path = tkFileDialog.asksaveasfile()
+	path = tkFileDialog.askopenfilename()
 	root.quit()
 	
 	return path

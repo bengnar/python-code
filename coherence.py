@@ -9,10 +9,9 @@ from sp_spectral import welch
 basedir = '/Volumes/BOB_SAGET/Fmr1_voc'
 # basedir = '/Users/robert/Desktop'
 
-
-def calc_coherence_all(experiment, pplot = False):
+def calc_coherence_all(experiment, stim_sep = False, pplot = False):
 	
-	dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('Psignal', '129f4'), ('Pnoise', '129f4'), ('Pnoise_jn' ,'129f4'), ('coh', '26f4'), ('coh_jn', '26f4'), ('F', '129f4'), ('info_snr', 'f4'), ('info_snr_jn', 'f4')])
+	dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('stimID', 'i4'), ('Psignal', '129f4'), ('Pnoise', '129f4'), ('Pnoise_jn' ,'129f4'), ('coh', '26f4'), ('coh_jn', '26f4'), ('F', '129f4'), ('info_snr', 'f4'), ('info_snr_jn', 'f4')])
 
 	p = re.compile('(\d+)')
 	
@@ -25,37 +24,44 @@ def calc_coherence_all(experiment, pplot = False):
 
 		print fpath
 		
+		absol, relat = os.path.split(fpath)
+		penname, _ = os.path.splitext(relat)
+		pennum = np.int32(p.findall(penname)[0])
+
 		f = h5py.File(fpath, 'r')
 		rast = f['rast'].value
 		stimparams = f['stimID'].value
 		stimparams = stimparams[:, 0][..., np.newaxis]
 		f.close()
 		
-		absol, relat = os.path.split(fpath)
-		penname, _ = os.path.splitext(relat)
-		pennum = np.int32(p.findall(penname)[0])
-		
-		Psignal, Pnoise, Pnoise_jn, f, coh_snr, coh_snr_jn, info_snr, info_snr_jn = calc_coherence(rast, stimparams)
-		
-		coherence_info.resize(coherence_info.size+1)
-		coherence_info[-1] = np.array((gen, exp, experiment, pennum, Psignal, Pnoise, Pnoise_jn, coh_snr, coh_snr_jn, f, info_snr, info_snr_jn), dtype = dtype)
-		
-		if pplot:
-			outpath = os.path.join(basedir, 'Analysis', '%s_%s_SNR.png' % (experiment, penname))
-			fig = plot_coherence(Psignal, Pnoise, Pnoise_jn, f, coh_snr, coh_snr_jn, info_snr, info_snr_jn, outpath)
-			plt.close(fig)
+		if stim_sep is True:
+			ustim = np.unique(stimparams[:, 0])
+			nstim = ustim.size
+		elif stim_sep is False:
+			ustim = None
+			nstim = 1
+
+		for i in range(nstim):
+			Psignal, Pnoise, Pnoise_jn, f, coh_snr, coh_snr_jn, info_snr, info_snr_jn = calc_coherence(rast, stimparams, ustim = [ustim[i]])
+
+			coherence_info.resize(coherence_info.size+1)
+			coherence_info[-1] = np.array((gen, exp, experiment, pennum, ustim[i], Psignal, Pnoise, Pnoise_jn, coh_snr, coh_snr_jn, f, info_snr, info_snr_jn), dtype = dtype)
+
+	
+			if pplot:
+				outpath = os.path.join(basedir, 'Analysis', '%s_%s_stim%i_SNR.png' % (experiment, penname, ustim[i]))
+				fig = plot_coherence(Psignal, Pnoise, Pnoise_jn, f, coh_snr, coh_snr_jn, info_snr, info_snr_jn, outpath)
+				plt.close(fig)
 		
 	return coherence_info
 
-def calc_coherence(rast, stimparams):
-	# tmp = np.load(os.path.join(basedir, 'voc.npz'))
-	# stims = tmp['P']
-	## Calculate the noise using a signal generated from all trials as well
-	# as a signal that does not incldue the trial for wich you calculate the
-	# noise (jack knifing)
-	
-	stimdur = 16000
-	ustim = np.unique(stimparams[:, 0])
+def calc_coherence(rast, stimparams, ustim = None):
+	'''Calculate the noise using a signal generated from all trials as well as a signal that does not incldue the trial for wich you calculate the noise (jack knifing)
+	'''
+	ustim = np.array(ustim)
+	if ustim is None:
+		ustim = np.unique(stimparams[:, 0])
+
 	nstim = ustim.size
 	npsth = 16000.
 	ntrials = [(stimparams[:, 0]==x).sum() for x in ustim]
@@ -73,14 +79,12 @@ def calc_coherence(rast, stimparams):
 		
 		ix = RF.get_trials(stimparams, [k+1])
 		resp = rast[ix, :16000]
-		# stim = stims[(k*stimdur):((k+1)*stimdur), :]
-		ntrial, npsth = resp.shape  # Number of trials for this stim-response
-		binsize = 1000./specsamplerate	#Sampling rate in for signal and noise ms.
-		ndur = np.round(stimdur/binsize) #+1	 # Length of signal and noise for this stim-response pair
+		ntrial, npsth = resp.shape  # Number of trials for this stim
+		binsize = 1000./specsamplerate	#Sampling rate ms.
+		ndur = np.round(npsth/binsize) # Length for this stim-response pair
 	
 		# Signal is estimated as the average of all trials for that stimulus
 		signal[:, k] = resp.mean(0)	
-	
 		for itrial in range(ntrial):
 		
 			# Calculate the two estimates of the noise
@@ -88,9 +92,7 @@ def calc_coherence(rast, stimparams):
 			noise_jn[:, itrial, k] = resp[itrial, :] - resp[ix, :].mean(0) #jackknifing (exclude current trial)
 			noise[:, itrial, k] = resp[itrial, :] - signal[:, k]
 	
-	
-	## Calculate the noise and signal psd obtained by averaging and by
-	# averaging after JNF.
+	## Calculate the noise and signal psd obtained by averaging before and after jackknifing
 	nfft = 256
 	fs = 1000.
 	
