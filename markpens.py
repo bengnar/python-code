@@ -1,7 +1,9 @@
+#!/usr/bin/env
+
+import os
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Button
-from matplotlib.text import Text
 from scipy.ndimage import imread
 import wx
 
@@ -20,9 +22,41 @@ class Penetrations():
 		self.cfs = []
 		self.text = []
 		self.npens = 0
+
+
+		'''Get file path and display scopephoto'''
+		# get scopephoto path
+		dialog = wx.FileDialog(None, 'ScopePhoto:', style = wx.OK|wx.CANCEL)
+		if dialog.ShowModal() == wx.ID_OK:
+			impath = dialog.GetPath()
+		dialog.Destroy()
+		
+
+		img = imread(impath) # load scopephoto
+		ax.imshow(img) # show scopephoto
+		
+		# Set output directory for this experiment as the relative path of the scopephoto
+		outputpath = os.path.split(impath)[0]
+
+		'''Place the outputpath and note text on the axis'''
+		xlim = np.array(ax.get_xlim())
+		ylim = np.array(ax.get_ylim())
+		
+		colwidth = (xlim[1]-xlim[0]) / 20.
+		rowwidth = (ylim[0]-ylim[1]) / 20.
+		
+		xloc = xlim[0] + np.abs(np.diff(xlim))/2.
+		yloc = ylim[0] - rowwidth
+		self.outputpath = ax.text(xloc, yloc, outputpath)
+		
+		yloc = ylim[0] - 2*rowwidth
+		self.note = ax.text(xloc, yloc, 'Note')
 		
 		ax.figure.canvas.mpl_connect('button_press_event', self.button_press_callback)
 		ax.figure.canvas.mpl_connect('motion_notify_event', self.motion_notify_callback)
+			
+		ax.callbacks.connect('xlim_changed', self.axis_update)
+		ax.callbacks.connect('ylim_changed', self.axis_update)
 		
 		self.ax = ax
 		self.selected = None
@@ -36,6 +70,7 @@ class Penetrations():
 				selected = [p.contains(event)[0] for p in self.pens]				
 				if sum(selected)==1:
 					self.selected = np.int32(np.array(selected).nonzero()[0])
+					return
 				else: return
 			else:
 				self.selected = None
@@ -46,7 +81,13 @@ class Penetrations():
 			if sum(selected)==1:
 				self.textselected = np.int32(np.array(selected).nonzero()[0])
 				self.edit_cf()
-			else: return
+				return
+			if self.note.contains(event)[0]:
+				self.edit_note()
+				return
+			if self.outputpath.contains(event)[0]:
+				self.edit_outputpath()
+				return
 
 		return
 		
@@ -67,7 +108,9 @@ class Penetrations():
 		if self.textselected is None: return
 		dialog = wx.TextEntryDialog(None, 'New CF: ', defaultValue = np.str(self.cfs[self.textselected]), style = wx.OK|wx.CANCEL)
 		if dialog.ShowModal() == wx.ID_OK:
-			freq = np.int32(dialog.GetValue())
+			try:
+				freq = np.int32(dialog.GetValue())
+			except ValueError: return
 			clr_ix = np.abs(ix2freq-freq).argmin()
 			clr = [nr[clr_ix], ng[clr_ix], nb[clr_ix]]
 			self.cfs[self.textselected] = np.int32(dialog.GetValue())
@@ -77,6 +120,30 @@ class Penetrations():
 		self.pens[self.textselected].set_color(clr)
 		plt.draw()
 		self.textselected = None
+
+	def edit_outputpath(self):
+		
+		dialog = wx.TextEntryDialog(None, 'Output dir: ', defaultValue = self.outputpath.get_text(), style = wx.OK|wx.CANCEL)
+		if dialog.ShowModal() == wx.ID_OK:
+			outputpath = dialog.GetValue()
+			if os.path.exists(outputpath):
+				self.outputpath.set_text(outputpath)
+			else: return
+		
+		dialog.Destroy()
+		
+		plt.draw()
+
+	def edit_note(self):
+		
+		dialog = wx.TextEntryDialog(None, 'Output dir: ', defaultValue = self.note.get_text(), style = wx.OK|wx.CANCEL)
+		if dialog.ShowModal() == wx.ID_OK:
+			self.note.set_text(dialog.GetValue())
+			
+		dialog.Destroy()
+		
+		plt.draw()
+
 
 	def add_pen(self, event):
 
@@ -94,8 +161,6 @@ class Penetrations():
 		
 		# add text box to margin
 		
-
-
 		plt.draw()
 		return
 
@@ -109,42 +174,60 @@ class Penetrations():
 		self.npens -= 1
 		plt.show()
 		return
+		
+	def axis_update(self, event):
+
+		xlim = np.array(self.ax.get_xlim())
+		ylim = np.array(self.ax.get_ylim())
+		
+		colwidth = (xlim[1]-xlim[0]) / 20.
+		rowwidth = (ylim[0]-ylim[1]) / 20.
+		
+		xloc = xlim[0] + np.abs(np.diff(xlim))/2.
+		yloc = ylim[0] - rowwidth
+		self.outputpath.set_position([xloc, yloc])
+		
+		yloc = ylim[0] - 2*rowwidth
+		self.note.set_position([xloc, yloc])
+
 
 	def save(self, event):
 		
 		if self.npens==0: return
-		xy = np.empty((self.npens, 4), dtype = np.float32)
-		for i in range(self.npens):
-			xy_ = self.pens[i].get_position()
-			xy[i, :] = np.array([i+1, xy_[0], xy_[1], self.cfs[i]])
-		np.savetxt('/Users/robert/Desktop/tmp.txt', xy)
-		print xy
-		return
+		outputpath = self.outputpath.get_text()
+		try:
+			xy = np.empty((self.npens, 4), dtype = np.float32)
+			for i in range(self.npens):
+				xy_ = self.pens[i].get_position()
+				xy[i, :] = np.array([i+1, xy_[0], xy_[1], self.cfs[i]])
+			np.savetxt(os.path.join(outputpath, 'markpens.txt'), xy)
+			ax.get_figure().savefig(os.path.join(outputpath, 'scopephotograph.png'))
+			print xy
 
-fig = plt.figure(figsize = [7.175, 5.4])
-fig.subplots_adjust(bottom = 0)
-fig.subplots_adjust(left = 0)
-fig.subplots_adjust(right = 1)
-ax = fig.add_axes([0, 0.1, 1, 0.9])
-ax.set_xticks([])
-ax.set_yticks([])
+		except IOError:
+			print '%s does not exist!' % outputpath
 
-ax_plus = fig.add_axes([0.09, 0.02, 0.06, 0.04])
-ax_minus = fig.add_axes([0.02, 0.02, 0.06, 0.04])
-ax_save = fig.add_axes([0.9, 0.02, 0.06, 0.04])
+if __name__ == '__main__':
+	
+	fig = plt.figure(figsize = [7.175, 5.4])
+	fig.subplots_adjust(bottom = 0)
+	fig.subplots_adjust(left = 0)
+	fig.subplots_adjust(right = 1)
+	ax = fig.add_axes([0, 0.1, 1, 0.9])
+	ax.set_xticks([])
+	ax.set_yticks([])
 
-# impath = get_path()
-impath = '/Users/robert/Desktop/voc_ko_exp_20130201/ScopePhoto1.png'
-img = imread(impath)
-ax.imshow(img)
+	ax_plus = fig.add_axes([0.09, 0.02, 0.06, 0.04])
+	ax_minus = fig.add_axes([0.02, 0.02, 0.06, 0.04])
+	ax_save = fig.add_axes([0.9, 0.02, 0.06, 0.04])
 
-pens = Penetrations(ax)
+	pens = Penetrations(ax)
 
-b_plus = Button(ax = ax_plus, label = '+')
-b_plus.on_clicked(pens.add_pen)
-b_minus = Button(ax = ax_minus, label = '-')
-b_minus.on_clicked(pens.rem_pen)
-b_save = Button(ax = ax_save, label = 'Save')
-b_save.on_clicked(pens.save)
+	b_plus = Button(ax = ax_plus, label = '+')
+	b_plus.on_clicked(pens.add_pen)
+	b_minus = Button(ax = ax_minus, label = '-')
+	b_minus.on_clicked(pens.rem_pen)
+	b_save = Button(ax = ax_save, label = 'Save')
+	b_save.on_clicked(pens.save)
 
-plt.show()
+	plt.show()
