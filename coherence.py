@@ -58,9 +58,10 @@ def calc_coherence_all(experiment, stim_sep = False, pplot = False):
 def calc_coherence(rast, stimparams, ustim = None):
 	'''Calculate the noise using a signal generated from all trials as well as a signal that does not incldue the trial for wich you calculate the noise (jack knifing)
 	'''
-	ustim = np.array(ustim)
+
 	if ustim is None:
 		ustim = np.unique(stimparams[:, 0])
+	ustim = np.array(ustim)
 
 	nstim = ustim.size
 	npsth = 16000.
