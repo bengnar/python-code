@@ -11,8 +11,8 @@ import Spikes
 import RF; reload(RF)
 import RR; reload(RR)
 
-basedir = '/Volumes/BOB_SAGET/Fmr1_RR'
-# basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
+# basedir = '/Volumes/BOB_SAGET/Fmr1_RR'
+basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 
 ix2freq = 1000 * 2**(np.arange(0, 64)/10.)
 
@@ -654,7 +654,9 @@ def plot_RF(rf, bw_lr = None, cf = None, thresh = None, ax = None):
 	if ax is None:
 		fig = plt.figure();
 		ax = fig.add_subplot(111);
-		
+	else:
+		fig = ax.get_figure()	
+	
 	im = ax.imshow(rf, interpolation = 'nearest', aspect = 'auto', cmap = 'gray', origin = 'upper')
 	cb = fig.colorbar(im)
 	cb.set_label('Firing rate (spikes/s)')
