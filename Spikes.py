@@ -259,8 +259,14 @@ def plot_raster(rast, ax = None):
 	
 	ax, _ = misc.axis_check(ax)
 
+	ntrials, nbins = rast.shape
 	spk = rast.nonzero()
-	ax.plot(spk[1], spk[0], marker = '|', linestyle = '', ms = 1)
+	spktrials = spk[0]
+	spktimes = spk[1]/1000.
+	
+	ax.plot(spktimes, spktrials, marker = '|', linestyle = '', ms = 1)
+	ax.set_xlim([0, nbins/1000.])
+	ax.set_ylim([0, ntrials])
 	
 	return ax
 

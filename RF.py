@@ -11,8 +11,8 @@ import Spikes
 import RF; reload(RF)
 import RR; reload(RR)
 
-# basedir = '/Users/robert/Desktop/Fmr1_RR'
-basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
+basedir = '/Volumes/BOB_SAGET/Fmr1_RR'
+# basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 
 ix2freq = 1000 * 2**(np.arange(0, 64)/10.)
 
@@ -65,8 +65,6 @@ def calc_rf(rast, stimparams, resp_on = 57, resp_off = 80, normed = False, smoot
 	if normed:
 
 		duration = resp_off - resp_on
-		# assert duration > 0
-		# assert count.all() > 0
 		rf = (1000 / duration) * (rf / count)
 	
 	if smooth:
@@ -178,12 +176,12 @@ def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, make
 		if onlygood:
 			badunits = []
 		else:
-			badunits = np.sort(glob.glob(os.path.join(basedir, experiment, 'fileconversion', '_RF*.h5')))
+			badunits = np.sort(glob.glob(os.path.join(basedir, 'Sessions', 'full_window', 'good', experiment, 'fileconversion', '_RF*.h5')))
 
-		goodunits = np.sort(glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5')))
+		goodunits = np.sort(glob.glob(os.path.join(basedir, 'Sessions', 'full_window', 'good', experiment, 'fileconversion', 'RF*.h5')))
 		units = np.concatenate((goodunits, badunits))
 	
-		cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'), ndmin = 1)
+		cfs = np.loadtxt(os.path.join(basedir, 'Sessions', 'full_window', 'good', experiment, 'cfs.txt'), ndmin = 1)
 
 		ax = fig.add_subplot(subcol, subcol, i+1)
 
@@ -234,7 +232,7 @@ def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, make
 		ax.set_xticklabels('')
 		ax.set_yticklabels('')
 
-	fig.tight_layout()
+	# fig.tight_layout()
 	
 	plt.show()
 
@@ -652,11 +650,15 @@ def calc_bw_thresh(B):
 
 def plot_RF(rf, bw_lr = None, cf = None, thresh = None, ax = None):
 	
+	nattens, nfreqs = rf.shape
 	if ax is None:
 		fig = plt.figure();
 		ax = fig.add_subplot(111);
 		
-	ax.imshow(rf, interpolation = 'nearest', aspect = 'auto', cmap = 'gray', origin = 'upper')
+	im = ax.imshow(rf, interpolation = 'nearest', aspect = 'auto', cmap = 'gray', origin = 'upper')
+	cb = fig.colorbar(im)
+	cb.set_label('Firing rate (spikes/s)')
+	
 	if bw_lr is not None:
 		j = 0
 		for i, (bw_l, bw_r) in enumerate(bw_lr[::-1]):
@@ -672,6 +674,12 @@ def plot_RF(rf, bw_lr = None, cf = None, thresh = None, ax = None):
 	
 	ax.set_ylim([rf.shape[0]-0.5, -0.5])
 	ax.set_xlim([-0.5, rf.shape[1]-0.5])
+	ax.set_xticks(np.arange(0, nfreqs, 10))
+	ax.set_xticklabels([('%0.0f' % (f/1000.)) for f in ix2freq[20:][np.arange(0, nfreqs, 10)]])
+	ax.set_xlabel('Frequency (kHz)')
+	ax.set_yticks(np.arange(0, nattens))
+	ax.set_yticklabels(np.arange((nattens-1)*10, -1, -10))
+	ax.set_ylabel('Sound Intensity (db SPL)')
 	plt.show()
 	
 	return ax

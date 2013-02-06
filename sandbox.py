@@ -639,12 +639,71 @@ for shift in range(-3, 3):
 		
 	misc.sameyaxis(ax)
 
+ix2freq = 1000 * 2**(np.arange(0, 64)/10.)
+
+sesspaths = glob.glob(os.path.join(basedir, 'Sessions', 'full_window', 'good', '*'))
+for sesspath in sesspaths:
+	rrpaths = glob.glob(os.path.join(sesspath, 'fileconversion', 'RF*.h5'))
+	for rrpath in rrpaths:
+		f = h5py.File(rrpath, 'r')
+		rast = f['rast'].value
+		stimparams = f['stimID'].value
+		cf = f['cf'].value
+		f.close()
+		rf = RF.calc_rf(rast, stimparams)
+
+
+dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('cf', 'f4'), ('resp_on', 'f4'), ('resp_off', 'f4')])
+db = np.empty(0, dtype = dtype)
+for s_ in f:
+	s = f[s_]
+	gen, exp, _ = s_.split('_')
+	for u_ in s:
+		u = s[u_]
+		db.resize(db.size+1)
+		db[-1] = np.array((gen, exp, s_, u['cf'].value, u['resp_on'].value, u['resp_off'].value[0]), dtype = dtype)
+		
+d = dict(gen = db['gen'], exp = db['exp'], resp_on = db['resp_on'], resp_off = db['resp_off'])
+
+df = pd.DataFrame(d)
 
 
 
+ev_psth_norm = np.apply_along_axis(zscore, 1, db['ev_psth'])	
 
 
-
-
-
+gens = ['wt', 'ko']
+exps = ['nai', 'exp']
+data_mean = np.empty((2, 2), dtype = float)
+data_sem = np.empty((2, 2), dtype = float)
+for g, gen in enumerate(gens):
+	for e, exp in enumerate(exps):
+		db_ = db[np.vstack((db['gen']==gen, db['exp']==exp)).all(0)]
+		sesss = np.unique(db_['sess'])
+		dat = []
+		for sess in sesss:
+			db__ = db_[db_['sess']==sess]
+			dat.append(db__['resp_on'].mean())
+		data_mean[g, e] = np.mean(dat)
+		data_sem[g, e] = np.std(dat) / np.sqrt(len(dat))
+			
+			
+fig = plt.figure()
+rrs = np.array([1.5, 2, 3, 4, 6, 8, 12])
+for i in range(7):
+	ax = fig.add_subplot(7, 1, i+1)
+	ax.set_xlim([0, 4])
+	RR.plot_tone_pips(rrs[i], 6, 0.05, 0.025, ax = ax)
+	ax.plot([0, 4], [0.05, 0.05], 'k')
+	ax.set_ylim([0, 0.1])
+	ax.set_yticks([])
+	ax.set_xticks([])
+	
+			
+			
+			
+			
+			
+			
+			
 
