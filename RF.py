@@ -647,8 +647,12 @@ def calc_bw_thresh(B):
 			
 	return bw, bw_lr, thresh
 		
-
-def plot_RF(rf, bw_lr = None, cf = None, thresh = None, ax = None):
+def plot_rf(rf, bw_lr = None, cf = None, thresh = None, ax = None):
+	
+	if type(rf) is h5py.File:
+		rast = f['rast'].value
+		stimparams = f['stimparams'].value
+		rf = calc_rf(rast, stimparams)
 	
 	nattens, nfreqs = rf.shape
 	if ax is None:
