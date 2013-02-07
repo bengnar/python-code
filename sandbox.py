@@ -699,9 +699,106 @@ for i in range(7):
 	ax.set_yticks([])
 	ax.set_xticks([])
 	
+
+
+
+sesspaths = glob.glob(os.path.join(basedir, 'voc_ko_*'))
+for sesspath in sesspaths:
+	rf_paths = glob.glob(os.path.join(sesspath, 'fileconversion', 'RF*.h5'))
+	fig = plt.figure()
+	fig.suptitle(os.path.split(sesspath)[-1])
+	for i, rf_path in enumerate(rf_paths[:4]):
+		ax = fig.add_subplot(2, 2, i+1)
+		f = h5py.File(rf_path, 'r')
+		RF.plot_rf(f, ax = ax)
+		f.close()
+
+
+
+
+
+
+# plot VOC psth contact sheets
+basedir = '/Volumes/BOB_SAGET/Fmr1_voc'
+sesspaths = glob.glob(os.path.join(basedir, 'voc_ko_nai*'))
+
+bins = np.arange(0, 20.001, 0.001)
+fig = plt.figure(figsize = (10.0125, 11.6875))
+for sesspath in sesspaths:
+	_, sess = os.path.split(sesspath)
+	print sess
+	voc_paths = glob.glob(os.path.join(sesspath, 'fileconversion', 'VOC*.h5'))
+	rf_paths = glob.glob(os.path.join(sesspath, 'fileconversion', 'RF*.h5'))
+	voc_paths.sort()
+	rf_paths.sort()
+	fpaths = zip(voc_paths, rf_paths)
+	for i, (voc_path, rf_path) in enumerate(fpaths):
+		figno = np.floor(i/5.)
+		rowno = i%5
+
+		f = h5py.File(voc_path, 'r')
+		voc_rast = f['rast'].value
+		voc_stimparams = f['stimID'].value
+		f.close()
+		voc_stimparams = voc_stimparams[:, 0][..., np.newaxis]
+		voc_psths, usp = Spikes.calc_psth_by_stim(voc_rast, voc_stimparams, bins = bins)
+		
+		f = h5py.File(rf_path, 'r')
+		rf_rast = f['rast'].value
+		rf_stimparams = f['stimID'].value
+		f.close()
+		rf = RF.calc_rf(rf_rast, rf_stimparams)
+		
+		ax = fig.add_subplot(5, 4, (rowno*4)+1)
+		RF.plot_RF(rf, ax = ax)
+		ax.set_title(os.path.split(rf_path)[-1])
+		
+		for j, voc_psth in enumerate(voc_psths):
+			colno = j+2
+			ax = fig.add_subplot(5, 4, (rowno*4)+colno)
+			voc_psth_smoo = Spikes.hamming_smoo(voc_psth, windlen = 20)
+			assert voc_psth_smoo.max()<10
+			ax.plot(bins[:-1], voc_psth_smoo)
+			ax.set_ylim([0,5])
+		if rowno==4 or i==len(fpaths):
+			fig.savefig(os.path.join(basedir, 'Analysis', '%s_voc_psth_%i.png' % (sess, figno)))
+			fig.clf()
+
+fig = plt.figure()
+ax = fig.add_subplot(432)
+RF.plot_RF(rf, ax = ax)		
+for j, voc_psth in enumerate(voc_psths):
+	ax = fig.add_subplot(4, 1, j+2)	
+	voc_psth_smoo = Spikes.hamming_smoo(voc_psth, windlen = 20)
+	ax.plot(bins[:-1], voc_psth_smoo)
+	ax.set_ylim([0, 5])
 			
-			
-			
+bins = np.arange(0, 4.501, 0.001)
+fig = plt.figure()
+# fig.tight_layout()
+fig.set_facecolor('w')
+ax = []
+for i in range(7):
+	ax.append(fig.add_axes([0, 1-(i/7.), 1, (1./7)]))
+	# ax.append(fig.add_subplot(7, 1, i+1))
+	psth_smoo = Spikes.hamming_smoo(psths[1, i, :], windlen = 20)
+	ax[-1].plot(bins[:-1], psth_smoo)
+	ax[-1].set_ylabel('%i' % rrs[i])
+	ax[-1].set_xticklabels([])
+	ax[-1].set_yticklabels([])
+	ax[-1].set_axis_off()
+misc.sameyaxis(ax)
+misc.samexaxis(ax, [0, 4])
+for i in range(7):
+	ax_ = ax[i]
+	RR.plot_tone_pips(rrs[i], 6, 0.050, 0.025, ax = ax_, color = 'r')
+plt.draw()
+plt.show()
+
+
+
+
+
 			
 			
 			
