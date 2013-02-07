@@ -48,7 +48,7 @@ def fileconversion(experiments, v = True):
 		print experiment
 
 		#get [b|r|etc]##.mat file names
-		files = glob.glob(os.path.join(basedir, experiment, 'data', '[Ptbsyrpvi]*.mat'))
+		files = glob.glob(os.path.join(basedir, experiment, 'data', '[vr]*.mat'))
 		nfiles = len(files)
 		
 		# make the destination directory if it doesn't exist (~/fileconversion/)
@@ -179,16 +179,23 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 		stimID[tt, :] = thisstimID
 
 			# end if valid ID
-	
-	# do number of spikes in raster equal number of spike waveforms saved?
-	assert rast.sum() == spkwaveform.shape[0]
-	
+
+	# # stoopid TDT shift
+	# stimID = stimID[1:, :]
+	# rast = rast[:-1, :]
+	# lfp = lfp[:-1, :]
+	# spkwaveform = spkwaveform[spktrials<(rast.shape[0]-1)]
+
+
 	remID = np.array([0., 0.])
 	spk_mask, trial_mask = RF.make_spk_and_trial_masks(spktrials, stimID, remID)
 	rast = rast[~trial_mask, :]
-	if spktime.size > 0:
-		spkwaveform = spkwaveform[~spk_mask]
+	# if spktime.size > 0:
+	# 	spkwaveform = spkwaveform[~spk_mask]
 	stimID = stimID[~trial_mask, :]
+	
+	# do number of spikes in raster equal number of spike waveforms saved?
+	# assert rast.sum() == spkwaveform.shape[0]
 	
 	# save out to file
 	u_.create_dataset('stimID', data = stimID)
@@ -196,7 +203,7 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 	u_.create_dataset('blockID', data = blockID)
 	# add stimulus ID datasets to this stimset on this unit
 	u_.create_dataset('lfp', data = lfp, compression = 'gzip')
-	u_.create_dataset('spkwaveform', data = spkwaveform, compression = 'gzip')
+	# u_.create_dataset('spkwaveform', data = spkwaveform, compression = 'gzip')
 	u_.create_dataset('rast', data = rast, compression = 'gzip')
 		
 	if blockID.startswith('b'):
