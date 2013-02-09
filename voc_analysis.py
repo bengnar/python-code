@@ -10,7 +10,7 @@ basedir = '/Volumes/BOB_SAGET/Vocalization/'
 fnames = glob.glob(os.path.join(basedir, 'analysis', 'gui_count_output', '*'))
 
 dtype = np.dtype([('gen', 'S2'), ('cage', 'S8'), ('age', 'i4'), ('chunk', 'i4'), ('ncalls', 'i4'), ('autocorr', '10001f4')])
-# 
+# LOLZ EDITZ
 # db = np.array([], dtype = dtype)
 # for fname in fnames:
 # 	absol, relat = os.path.split(fname)
