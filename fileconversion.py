@@ -19,41 +19,56 @@ import os, glob, h5py, re
 import Spikes; reload(Spikes)
 import RF; reload(RF)
 
-
+# a dictionary mapping the .mat prefix onto the .h5 prefix. for example, b##.mat files are made into RF###.h5 files
 prefix = {'b' : 'RF', 'r' : 'RR', 'q' : 'QU', 'v' : 'VOC', 'i' : 'IS', 'P' : 'RF'}
 
-electrodetype = 'tungsten'
-electrodeinfo = {'fourbyfour' : {'nchan' : 16, 'npen' : 4, 'chanorder' : np.array([[1, 7, 13, 14], [3, 4, 10, 16], [2, 8, 12, 11], [6, 5, 9, 15]]), 'npen' : 4}, 'tungsten' : {'nchan' : 4, 'npen' : 4, 'chanorder' : None}, 'pen' : {'nchan' : 1, 'npen' : 1, 'chanorder' : None}}
+# what kind of electrode was used in this experiment? dictionary keys are electrode descriptions, and items are things like the number of channels in on that electrode, the channel order (if more than one channel per electrode), 
+electrodeinfo = dict(\
+fourbyfour = dict(nchan=16, npenperblock=4, chanorder=np.array([[1, 7, 13, 14], [3, 4, 10, 16], [2, 8, 12, 11], [6, 5, 9, 15]])), \
+tungsten = dict(nchan=4, npenperblock=4, chanorder=None), \
+pen = dict(nchan=1, npenperblock=1, chanorder=None)) # a single electrode per block
 
-stimulusinfo = {'RF' : {'nbins' : 333}, 'RR' : {'nbins' : 6000}, 'VOC' : {'nbins' : 20000}}
+# any information specific to a stimulus type
+stimulusinfo = dict(\
+RF = dict(nbins=333), \
+RR = dict(nbins=6000), \
+VOC = dict(nbins=20000))
 
 nchanperblockdict = {'b' : 4, 'i' : 16}
-# basedir = '/Users/robert/Desktop/tetrode_test'
-# basedir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
-# basedir = '/Volumes/BOB_SAGET/for_shaowen/'
-# basedir = '/Volumes/BOB_SAGET/Fmr1_KO_ising/Sessions/good/'
-basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
+# studydir = '/Users/robert/Desktop/tetrode_test'
+# studydir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
+# studydir = '/Volumes/BOB_SAGET/for_shaowen/'
+# studydir = '/Volumes/BOB_SAGET/Fmr1_KO_ising/Sessions/good/'
 
-def fileconversion(experiments, v = True):
+def fileconvert(sessions, studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
+, v = True, electrodetype = 'tungsten'):
+	'''
+	Converts *.mat files into python-friendly *.h5 files.
+	Input:
+		sessions - this can be either a list of experimental sessions or a the name of a single session as a string
+		v - verbose
+	Output:
+		saves
 	
-	if type(experiments) is str:
-		experiments = [experiments]
-	elif experiments is None:
-		experiments = glob.glob(os.path.join(basedir, '*'))
+	'''
+	if type(sessions) is str:
+		sessions = [sessions]
+	elif sessions is None:
+		sessions = glob.glob(os.path.join(studydir, '*'))
 		
 	# compile regexp patterns
 	p_blocknum = re.compile('(?<=[a-zA-Z])[\d]+')
 	
-	for experiment in experiments:
-		print experiment
+	for session in sessions:
+		print session
 
 		#get [b|r|etc]##.mat file names
-		files = glob.glob(os.path.join(basedir, experiment, 'data', '[vr]*.mat'))
+		files = glob.glob(os.path.join(studydir, session, 'data', '[vr]*.mat'))
 		nfiles = len(files)
 		
 		# make the destination directory if it doesn't exist (~/fileconversion/)
-		if not os.path.exists(os.path.join(basedir, experiment, 'fileconversion')):
-			os.mkdir(os.path.join(basedir, experiment, 'fileconversion'))
+		if not os.path.exists(os.path.join(studydir, session, 'fileconversion')):
+			os.mkdir(os.path.join(studydir, session, 'fileconversion'))
 
 		blockinfo = []
 
@@ -75,30 +90,30 @@ def fileconversion(experiments, v = True):
 		blockinfo.sort()
 	
 		# load cfs and coords
-		cfs = load_cfs(experiment, v = v)
-		coords = load_coords(experiment, v = v)
+		cfs = load_cfs(session, v = v)
+		coords = load_coords(session, v = v)
 		
 		#loop through penetrations
 		for blocknum, blockrep, blockID in blockinfo:
 
-			fileconversion_block(experiment, blocknum, blockID, blockrep, coords = coords, cfs = cfs, v = v, electrodeinfo = electrodeinfo[electrodetype], stimulusinfo = stimulusinfo[prefix[blockID[0]]])
+			fileconvert_block(session, blocknum, blockID, blockrep, studydir = studydir, coords = coords, cfs = cfs, v = v, electrodeinfo = electrodeinfo[electrodetype], stimulusinfo = stimulusinfo[prefix[blockID[0]]])
 
 		# end block loop
 
-	# end experiment loop
+	# end session loop
 
-def fileconversion_block(experiment, blocknum, blockID, blockrep, coords = None, cfs = None, v = True, electrodeinfo = electrodeinfo['tungsten'], stimulusinfo = stimulusinfo['RF']):
+def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coords = None, cfs = None, v = True, electrodeinfo = electrodeinfo['tungsten'], stimulusinfo = stimulusinfo['RF']):
 	
 	chanorder = electrodeinfo['chanorder']
 	nchan = electrodeinfo['nchan']
-	npen = electrodeinfo['npen']
+	npen = electrodeinfo['npenperblock']
 	
 	if cfs is None:
-		cfs = load_cfs(experiment)
+		cfs = load_cfs(session)
 	if coords is None:
-		coords = load_coords(experiment)
+		coords = load_coords(session)
 	
-	tempfile = scipy.io.loadmat(os.path.join(basedir, experiment, 'data', blockID + '.mat')) # load the .mat file0
+	tempfile = scipy.io.loadmat(os.path.join(studydir, session, 'data', blockID + '.mat')) # load the .mat file0
 	Data0 = tempfile['Data'] # save the Data file0 to a temporary variable
 	# Data0 = tempfile['data'] # when converting already separated penetrations
 
@@ -114,12 +129,12 @@ def fileconversion_block(experiment, blocknum, blockID, blockrep, coords = None,
 	for cc in range(nchan):
 
 		if chanorder is None:
-			siteno = ((blocknum-1)*npen) + cc + 1
+			siteno = ((blocknum-1)*npenperblock) + cc + 1
 		elif len(chanorder.shape) == 2:
-			siteno =((blocknum-1)*npen) + (chanorder == cc+1).nonzero()[1][0]+1
+			siteno =((blocknum-1)*npenperblock) + (chanorder == cc+1).nonzero()[1][0]+1
 			print cc+1, siteno
 	
-		savepath = os.path.join(basedir, experiment, 'fileconversion', '%s%3.3u.h5' % (prefix[blockID[0]], siteno))
+		savepath = os.path.join(studydir, session, 'fileconversion', '%s%3.3u.h5' % (prefix[blockID[0]], siteno))
 		u_ = h5py.File(savepath, 'w')
 		unit(u_, Data0, cc, blockID, nbins = stimulusinfo['nbins'])
 
@@ -211,12 +226,12 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 		u_.create_dataset('rf', data = rf, compression = 'gzip')
 	
 	
-def load_coords(experiment, v = True):
+def load_coords(session, v = True):
 	
 	try:
-		coords = np.loadtxt(os.path.join(basedir, experiment, 'experimentfiles', experiment + '.txt'), ndmin = 1)
+		coords = np.loadtxt(os.path.join(studydir, session, 'experimentfiles', session + '.txt'), ndmin = 1)
 		if v:
-			print 'Found coordinates at %s' % os.path.join(basedir, experiment, 'experimentfiles', experiment + '.txt')
+			print 'Found coordinates at %s' % os.path.join(studydir, session, 'experimentfiles', session + '.txt')
 	except:
 		coords = np.nan
 		if v:
@@ -224,12 +239,12 @@ def load_coords(experiment, v = True):
 			
 	return coords
 	
-def load_cfs(experiment, v = True):
+def load_cfs(session, v = True):
 
 	try:
-		cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'), 'float32', ndmin = 1)
+		cfs = np.loadtxt(os.path.join(studydir, session, 'cfs.txt'), 'float32', ndmin = 1)
 		if v:
-			print 'Found CFs at %s' % os.path.join(basedir, experiment, 'cfs.txt')
+			print 'Found CFs at %s' % os.path.join(studydir, session, 'cfs.txt')
 	except:
 		cfs = np.nan
 		if v:
@@ -274,7 +289,7 @@ def sort_redos(d, v = False):
 		d - session main directory, e.g. /Users/robert/Desktop/Fmr1_RR/Sessions/ko_nai_20120306
 	'''
 	# get a list of the files
-	os.chdir(os.path.join(basedir, d, 'data'))
+	os.chdir(os.path.join(studydir, d, 'data'))
 	files = glob.glob('[b|r]*.mat')
 	files.append('^^^') # special treatment for the last file
 	p = re.compile('_R[\d]*')

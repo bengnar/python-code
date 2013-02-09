@@ -5,7 +5,7 @@ import Spikes
 from STRF_util import make_delayed
 from ridge import ridge, bootstrap_ridge, find_best_alpha, set_weights, avg_corr_mats
 
-basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
+studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 
 fs_stim = 250000 # stimulus sample rate
 fs_strf = 200. # corrresponds to 5-ms time bins
@@ -79,7 +79,7 @@ def calc_strfs(experiment, pennum, prefix = 'VOC', nchunks = 5):
 	meanstrfs = np.mean([a for a in allstrfs], 0)
 	meancorrs = np.mean([a for a in allcorrs], 0)
 
-	# allvalidstrfs = np.zeros((len(pens),stims.shape[1],delaylen,len(chunks_sent)))
+	# allvalidstrfs = np.zeros((len(pens),stims.shape[1],ndelays,len(chunks_sent)))
 	# 
 	# allvalidcorrs = np.zeros((len(pens),len(chunks_sent)))
 
@@ -89,62 +89,75 @@ def calc_strfs(experiment, pennum, prefix = 'VOC', nchunks = 5):
 def load_response(experiment, pennum, prefix = 'VOC'):
 	
 	'''RESPONSE'''
-	f = h5py.File(os.path.join(basedir, 'voc_ko_nai_20130116', 'fileconversion', '%s%3.3u.h5' % (prefix, pennum)), 'r')
+	f = h5py.File(os.path.join(studydir, 'voc_ko_nai_20130116', 'fileconversion', '%s%3.3u.h5' % (prefix, pennum)), 'r')
 	rast = f['rast'].value
 	stimparams = f['stimID'].value
 	stimparams = stimparams[:, 0]
 	stimparams = stimparams[:, np.newaxis]
 	f.close()
 	
-	(resps_, _) = Spikes.calc_psth_by_stim(rast, stimparams, bins = bins_strf)
+	resps_, _ = Spikes.calc_psth_by_stim(rast, stimparams, bins = bins_strf)
 	# resps = resps[..., np.newaxis]
 	# resps = resps.T
 
 	# make concatenated vector of responses
-	resps = resps_.reshape(np.prod(resps_.shape), order = 'C')
-	assert (resps[:resps_.shape[1]]==resps_[0, :]).all()
+	# resps = resps_.reshape(np.prod(resps_.shape), order = 'C')
+	# assert (resps[:resps_.shape[1]]==resps_[0, :]).all()
 	
 	return resps
 	
-def load_stimulus(delaylen = 40, delaytime = 5):
+def load_stimulus(ndelays = 40, delaytime = 5):
+	'''
+	P should have been saved as a (no. time points x no. frequencies x no.stimuli)
+	Output:
+		dStims
+	'''
 	
 	'''load already-processed stimulus spectrogram'''
-	tmp = np.load(os.path.join(basedir, 'voc.npz'))
+	tmp = np.load(os.path.join(studydir, 'voc.npz'))
 	P = tmp['P']
 	F = tmp['F']
 	T = tmp['T']
 
+	if len(P.shape)==2:
+		P = P[..., np.newaxis]
+	
+	nbins, nfreqs, nstims = P.shape
+
 	'''create delayed stimulus matrix'''
-	delays = range(delaylen) # 0 - 200 msec
-	dStims = make_delayed(P, delays)
+	dStims = np.empty((nbins, nfreqs*ndelays, nstims))
+	delays = range(ndelays) # 0 - 200 msec
+	for i in range(nstims):
+		dStims[:, :, i] = make_delayed(P[:, :, i], delays)
 	return dStims
 	
-def process_stim():
+def process_stim(fs_stim = 250000, fs_strf = 200):
 	'''STIMULUS'''
-	pos = np.loadtxt(os.path.join(basedir, 'stims', 'pos.txt'))
-	npts = np.loadtxt(os.path.join(basedir, 'stims', 'npts.txt'))
+	pos = np.loadtxt(os.path.join(studydir, 'stims', 'pos.txt'))
+	npts = np.loadtxt(os.path.join(studydir, 'stims', 'npts.txt'))
+	nstims = pos.size
 
 	# load stimulus .wav file
-	stim_fname = os.path.join(basedir, 'stims', 'voc.txt')
+	stim_fname = os.path.join(studydir, 'stims', 'voc.txt')
 	s = np.loadtxt(stim_fname)
 
 	increment = fs_stim / fs_strf
 	NFFT = 128
 	noverlap = NFFT-increment
-	stims = np.empty((0, (NFFT/2)+1))
-	for pos_, npts_ in zip(pos, npts):
+	stims = np.empty((nbins_strf, (NFFT/2)+1, nstims))
+	for i, (pos_, npts_) in enumerate(zip(pos, npts)):
 		# print pos_-1, pos_-1 + npts_
 		s_ = s[(pos_-1):((pos_-1) + npts_)]
 		nsamp_t = s_.size
 		(P_, F, T) = specgram(s_, Fs = fs_stim, NFFT = NFFT, noverlap = noverlap)
 		P_ = np.hstack((P_, np.zeros((P_.shape[0], nbins_strf-P_.shape[1]))))
-		stims = np.vstack((stims, P_.T))
+		stims[:, :, i] = P_.T
 	
 	f_hp = 20000
-	stims = stims[:, F>f_hp]
+	stims = stims[:, F>f_hp, :]
 	F = F[F>f_hp]
 	
-	np.savez(os.path.join(basedir, 'voc.npz'), P = stims, F = F, T = T)
+	np.savez(os.path.join(studydir, 'voc.npz'), P = stims, F = F, T = T)
 	del(s)	
 	
 	
