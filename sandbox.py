@@ -798,7 +798,21 @@ plt.show()
 
 
 
+# plot abr amplitudes
 
+gens = ['wt', 'ko']
+exps = ['nai', 'exp']
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+for gen in gens:
+	for exp in exps:
+
+		data = x[np.vstack((x['gen']==gen, x['exp']==exp, x['freq']==8000, x['atten']==38)).all(0)]['ampl']
+		ampl = data.mean(0)
+		ampl_sem = data.std(0) / np.sqrt(data.shape[0])
+			
+		ax.errorbar(np.arange(1, 6), ampl, yerr = ampl_sem)
 			
 			
 			
