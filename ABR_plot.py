@@ -93,7 +93,7 @@ fig = plt.figure(figsize = [6., 8.7625])
 
 gens = ['wt', 'ko']
 exps = ['nai', 'exp']
-duration = 0.099424
+duration = 0.00999424
 nsamples = 244
 
 t = np.linspace(0, duration, nsamples)
@@ -103,7 +103,10 @@ freq = 16000.
 for e, exp in enumerate(exps):
 	ax = fig.add_subplot(1, 2, e+1)
 	for gen in gens:
-		animal = np.random.randint(1, 5)
+	for animal in range(1, 5):
+		# animal = np.random.randint(1, 5)
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
 		abr = np.load('%s_%s_%1.1i_ABR.npz' % (gen, exp, animal))['arr_0']
 
 		abr_ = abr[abr['freq']==freq]
@@ -114,9 +117,9 @@ for e, exp in enumerate(exps):
 
 		ABR.plot_abr_attens(t, y_filt, abr_['atten'][:10:2], ax = ax, color = plt_opts[gen]['color'], y_offset_mag = 0.0005)
 		
-		ax.set_xlim([0.01, 0.07])
+		ax.set_xlim([0.001, 0.007])
 
-ax.plot([0.015, 0.015, 0.025], [-0.00002, -0.000052, -0.000052], ls = '-', color = 'k')
+ax.plot([0.0015, 0.0015, 0.0025], [-0.000002, -0.000052, -0.000052], ls = '-', color = 'k')
 
 
 plt.show()

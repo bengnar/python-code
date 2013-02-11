@@ -191,7 +191,7 @@ def convert(fname):
 	np.savez(savepath, X)
 	
 
-def filter_abr(x, duration = 0.0099424, nsamples = 244, Wn = 0.05, btype = 'high'):
+def filter_abr(x, duration = 0.00999424, nsamples = 244, Wn = 0.05, btype = 'high'):
 
 	b, a = butter(10, Wn = Wn, btype = btype)
 	if len(x.shape)==1:
