@@ -1,8 +1,7 @@
-from matplotlib.widgets import Button, Slider
+from matplotlib.widgets import Button
 import os, glob
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 from voc import plot_spec, load_spec, zscore_spec, lowpass_spec
 
 plt.ion()
