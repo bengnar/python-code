@@ -10,7 +10,7 @@ import h5py
 from scipy.stats import nanmean, nanstd
 from scipy.signal import sepfir2d
 from scipy.sparse import lil_matrix
-from findclusters import findclusters
+# from findclusters import findclusters
 
 
 # basedir = '/Volumes/BOB_SAGET/Vocalization/'
@@ -206,7 +206,7 @@ def compress_file(fname, v = True):
 	
 def compress_sess(sessdir, v = True):
 	
-	fnames = glob.glob(os.path.join(sessdir, '*')).sort()
+	fnames = glob.glob(os.path.join(sessdir) + '*').sort()
 	fnames.sort()
 	for fname in fnames:
 		absol, ext = os.path.splitext(fname)
@@ -221,8 +221,7 @@ def compress_sess(sessdir, v = True):
 	
 def run_compress_sess():
 	
-	cagedirs = glob.glob(os.path.join(basedir, 'Cages/*')).sort()
-	cagedirs = [os.path.join(basedir, 'Cages', 'KO3-2'), os.path.join(basedir, 'Cages', 'KO3-2-3pups')]
+	cagedirs = glob.glob(os.path.join(basedir, 'Cages', '*')).sort()
 	for cagedir in cagedirs:
 		_, cage = os.path.split(cagedir)
 		print cagedir
@@ -234,7 +233,7 @@ def run_compress_sess():
 
 def calc_specgram_all():
 	
-	cagedirs = glob.glob(os.path.join(basedir, 'Cages/*')).sort()
+	cagedirs = glob.glob(os.path.join(basedir, 'Cages', '*')).sort()
 	
 	for cagedir in cagedirs:
 		cage = os.path.split(cagedir)[1]
