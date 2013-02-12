@@ -118,6 +118,8 @@ def bin2arr(f, sampwidth = 4, ind = (0, None)):
 	elif sampwidth == 8:
 		dtype = 'd' # if double precision float
 	x = struct.unpack('>%s%s' % (nsamp, dtype), xs)
+	del xs
+	
 	x = np.array(x, dtype = 'float32')
 	
 	return x, fs
@@ -208,16 +210,16 @@ def compress_sess(sessdir, v = True):
 	
 	fnames = np.sort(glob.glob(os.path.join(sessdir, '*')))
 	print fnames
+	fnames = [fname for fname in fnames if not len(os.path.splitext(fname)[-1])]
 	for fname in fnames:
 		absol, ext = os.path.splitext(fname)
-		if len(ext) == 0:
-			if not os.path.exists(absol + '.h5'):
-				if v:
-					print fname
-				try:
-					compress_file(fname)
-				except:
-					print 'File not saved!'
+		if not os.path.exists(absol + '.h5'):
+			if v:
+				print fname
+			try:
+				compress_file(fname)
+			except:
+				print 'File not saved!'
 	
 def run_compress_sess():
 	
