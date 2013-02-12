@@ -180,16 +180,16 @@ def power_search(fname):
 
 def run_power_search():
 	
-	cagedirs = glob.glob(os.path.join(basedir, 'Cages/*')).sort()
+	cagedirs = np.sort(glob.glob(os.path.join(basedir, 'Cages/*')))
 
 	for cagedir in cagedirs:
 		cage = os.path.split(cagedir)[1]
 		print cage
-		sessdirs = glob.glob(os.path.join(cagedir, 'P*')).sort()
+		sessdirs = np.sort(glob.glob(os.path.join(cagedir, 'P*')))
 		for sessdir in sessdirs:
 			_, sess = os.path.split(sessdir)
 			print sess
-			chunks = glob.glob(os.path.join(sessdir, '*.npz')).sort()
+			chunks = np.sort(glob.glob(os.path.join(sessdir, '*.npz')))
 			for chunk in chunks:
 				chunk_ = os.path.splitext(os.path.split(chunk)[-1])[0] + '_blobs.txt'
 				if not os.path.exists(os.path.join(basedir, 'analysis', 'power_search_output', chunk_)):
@@ -199,33 +199,33 @@ def run_power_search():
 def compress_file(fname, v = True):
 	f = open(fname, 'rb')
 	s, fs = bin2arr(f)
-	f = h5py.File(absol + '.h5')
+	f = h5py.File(fname + '.h5')
 	f.create_dataset('s', data = s, compression = 'gzip')
 	f.create_dataset('fs', data = fs)
 	f.close()
 	
 def compress_sess(sessdir, v = True):
 	
-	fnames = glob.glob(os.path.join(sessdir) + '*').sort()
-	fnames.sort()
+	fnames = np.sort(glob.glob(os.path.join(sessdir, '*')))
+	print fnames
 	for fname in fnames:
 		absol, ext = os.path.splitext(fname)
 		if len(ext) == 0:
 			if not os.path.exists(absol + '.h5'):
+				if v:
+					print fname
 				try:
 					compress_file(fname)
-					if v:
-						print fname
 				except:
 					print 'File not saved!'
 	
 def run_compress_sess():
 	
-	cagedirs = glob.glob(os.path.join(basedir, 'Cages', '*')).sort()
+	cagedirs = np.sort(glob.glob(os.path.join(basedir, 'Cages', '*')))
 	for cagedir in cagedirs:
 		_, cage = os.path.split(cagedir)
 		print cagedir
-		sessdirs = glob.glob(os.path.join(cagedir, '*')).sort()
+		sessdirs = np.sort(glob.glob(os.path.join(cagedir, '*')))
 		for sessdir in sessdirs:
 			_, sess = os.path.split(sessdir)
 			compress_sess(sessdir)
