@@ -235,16 +235,18 @@ def run_compress_sess():
 
 def calc_specgram_all():
 	
-	cagedirs = glob.glob(os.path.join(basedir, 'Cages', '*')).sort()
+	cagedirs = glob.glob(os.path.join(basedir, 'Cages', '*'))
+	cagedirs.sort()
 	
 	for cagedir in cagedirs:
 		cage = os.path.split(cagedir)[1]
 		print cage
-		sessdirs = glob.glob(os.path.join(cagedir, 'P*')).sort()
+		sessdirs = glob.glob(os.path.join(cagedir, 'P*'))
+		sessdirs.sort()
 		for sessdir in sessdirs:
 			_, sess = os.path.split(sessdir)
 			print sess
-			chunks = glob.glob(os.path.join(sessdir, '*.h5')).sort()
+			chunks = glob.glob(os.path.join(sessdir, '*.h5'))
 			chunks.sort()
 			for chunk in chunks:
 				absol, relat = os.path.split(chunk)
@@ -291,13 +293,16 @@ def calc_specgram(fname):
 
 	
 def summarize_all_sess():
-		cages = glob.glob(os.path.join(basedir, 'Cages/*')).sort()
+		cages = glob.glob(os.path.join(basedir, 'Cages/*'))
+		cages.sort()
 		for cage in cages:
 			print '%s' % cage
-			sesss = glob.glob(os.path.join(cage, '*')).sort()
+			sesss = glob.glob(os.path.join(cage, '*'))
+			sesss.sort()
 			for sess in sesss:
 				_, sess_ = os.path.split(sess)
-				files = glob.glob(os.path.join(cage + '_*.h5')).sort()
+				files = glob.glob(os.path.join(cage + '_*.h5'))
+				files.sort()
 				print '\t%s\t%i' % (sess, len(files))
 			print '\n'
 
@@ -499,7 +504,8 @@ def plot_compare_auto_vs_man(auto, man, auto_only, man_only, P):
 	
 
 def quantify_all():
-	cagedirs = glob.glob(os.path.join(basedir, 'Cages/*')).sort()
+	cagedirs = glob.glob(os.path.join(basedir, 'Cages/*'))
+	cagedirs.sort()
 
 	wind = np.hamming(15)
 	wind = wind / wind.sum()
@@ -512,11 +518,13 @@ def quantify_all():
 	for cagedir in cagedirs:
 		cage = os.path.split(cagedir)[1]
 		print cage
-		sessdirs = glob.glob(os.path.join(cagedir, 'P*')).sort()
+		sessdirs = glob.glob(os.path.join(cagedir, 'P*'))
+		sessdirs.sort()
 		for sessdir in sessdirs:
 			_, sess = os.path.split(sessdir)
 			print sess
-			chunks = glob.glob(os.path.join(sessdir, '*.npz')).sort()
+			chunks = glob.glob(os.path.join(sessdir, '*.npz'))
+			chunks.sort()
 			ix = np.random.randint(0, len(chunks)-1, 2)
 			for i in ix:
 				chunk = chunks[i]
