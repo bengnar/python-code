@@ -815,6 +815,8 @@ for gen in gens:
 		ax.errorbar(np.arange(1, 6), ampl, yerr = ampl_sem)
 			
 			
-			
-			
+for path in fpaths:
+	absol, relat = os.path.split(path)
+	if relat.find(' ')>-1:
+		shutil.move(path, os.path.join(absol, relat.replace(' ', '0')))
 
