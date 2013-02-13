@@ -820,3 +820,138 @@ for path in fpaths:
 	if relat.find(' ')>-1:
 		shutil.move(path, os.path.join(absol, relat.replace(' ', '0')))
 
+p = re.compile('(\d+)')
+onset_time_ix = 50
+
+# Gens = np.empty(0, 'S2')
+# Exps = np.empty(0, 'S3')
+# Sesss = np.empty(0, 'S20')
+# Unitnums = np.empty(0, np.int32)
+# Cfs = np.empty(0, np.float32)
+# Peak_times = np.empty(0, np.float32)
+# On_times = np.empty(0, np.float32)
+# Xloc = np.empty(0, np.float32)
+# Yloc = np.empty(0, np.float32)
+
+dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('cf', 'f4'), ('peak_time', 'f4'), ('on_time', 'f4'), ('x', 'f4'), ('y', 'f4'), ('psth', '333f4'), ('rf', '(8,43)f4')])
+
+db = np.empty(0, dtype = dtype)
+
+
+for experiment in experiments:
+	rfpaths = glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5'))
+	cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'))
+	xys = np.loadtxt(os.path.join(basedir, experiment, 'xys.txt'))
+	_, gen, exp, sess = experiment.split('_')
+	for rfpath in rfpaths:
+		absol, relat = os.path.split(rfpath)
+		fname, ext = os.path.splitext(relat)
+		unitnum = np.int32(p.findall(fname)[0])
+		cf = cfs[cfs[:, 0]==unitnum, 1][0]
+		xy = xys[xys[:, 0]==unitnum, 1:][0]
+		f = h5py.File(rfpath, 'r')
+		rast = f['rast'].value
+		stimparams = f['stimID'].value
+		f.close()
+		
+		# ix = stimparams[:, 1]>10
+		psth = rast.sum(0)
+		psth_smoo = Spikes.hamming_smoo(psth, windlen = 5)
+		
+		peak_time = (psth_smoo[55:100].argmax() + 5) / 1000.
+		on_time, _ = Spikes.calc_on_off(psth_smoo)
+		
+		rf = RF.calc_rf(rast, stimparams)
+		
+		db.resize(db.size+1)
+		db[-1] = np.array((gen, exp, sess, unitnum, cf, peak_time, on_time, xy[0], xy[1], psth, rf), dtype = dtype)
+		
+		# Gens = np.hstack((Gens, gen))
+		# Exps = np.hstack((Exps, exp))
+		# Sesss = np.hstack((Sesss, sess))
+		# Unitnums = np.hstack((Unitnums, unitnum))
+		# Cfs = np.hstack((Cfs, cf))
+		# Peak_times = np.hstack((Peak_times, peak_time))
+		# On_times = np.hstack((On_times, on_time))
+		# Xloc = np.hstack((Xloc, xy[0]))
+		# Yloc = np.hstack((Yloc, xy[1]))
+		
+# df = pd.DataFrame(dict(gen = Gens, exp = Exps, sess = Sesss, unit = Unitnums, cf = Cfs, peak_time = Peak_times, on_time = On_times, x = Xloc, y = Yloc))
+		
+grouped = df.groupby('exp')
+means = grouped.mean()
+stds = grouped.std()
+for m, s in zip(means.peak_time, stds.peak_time):
+	print '%.5f (%.5f)' % (m, s)
+		
+		
+for experiment in experiments:
+	markpenspath = os.path.join(basedir, experiment, 'experimentfiles', experiment+'.txt')
+	recsites = np.loadtxt(markpenspath)
+	cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'))
+ 	goodunits = cfs[:, 0]
+	recsites = recsites[np.array([r in goodunits for r in recsites[:, 0]]).nonzero()[0]]
+	unitnums = recsites[:, 0]
+	xloc = recsites[:, 1]
+	yloc = recsites[:, 2]
+	xmin = xloc.min()
+	xmax = xloc.max()-xmin
+	ymin = yloc.min()
+	ymax = yloc.max()-ymin
+	
+	xloc = (xloc - xmin) / xmax
+	yloc = (yloc - ymin) / ymax
+	
+	assert (xloc.min()==0) and (xloc.max()==1) and (yloc.min()==0) and (yloc.max()==1)
+	
+	xy = np.hstack((unitnums[..., np.newaxis], xloc[..., np.newaxis], yloc[..., np.newaxis]))
+
+	np.savetxt(os.path.join(basedir, experiment, 'xy.txt'), xy)
+	
+
+
+
+
+
+
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
