@@ -433,13 +433,20 @@ def rf_contact_sheet(experiments):
 	
 	if type(experiments) == str:
 		experiments = [experiments]
-	
+
+	fig = plt.figure(figsize = (16, 12))
 	for experiment in experiments:
+		cf_path = os.path.join(basedir, experiment, 'cfs.txt')
+		if os.path.exists(cf_path):
+			cfs = np.loadtxt(cf_path)
+		else:
+			cfs = None
+
 		units = glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5'))
 		units = np.sort(units)
 		nunits = len(units)
 		ncols = np.ceil(np.sqrt(nunits))
-		fig = plt.figure(figsize = (16, 12))
+
 		fig.suptitle(experiment)
 		for i, unit in enumerate(units):
 			absol, rel = os.path.split(unit)
@@ -454,12 +461,15 @@ def rf_contact_sheet(experiments):
 
 			# thresholded rf
 			rf_thresh = threshold_rf(rf, 0.25)
-			[rf_clust, _, _] = findmaxcluster(rf_thresh, include_diagonal = False)
+			rf_clust, _ = findmaxcluster(rf_thresh, include_diagonal = False)
 			
 			RF = np.hstack([rf, np.ones((rf.shape[0], 1))*rf.max(), rf_clust])
 
 			ax = fig.add_subplot(ncols, ncols, i+1)
 			ax.imshow(RF, interpolation = 'nearest', aspect = 'auto', cmap = 'hot')
+			if not cfs is None:
+				cf = cfs[cfs[:, 0]==np.int32(unitname), 1]
+				ax.axvline(cf, color = 'w', lw = 3)
 			ax.text(textx, texty, unitname, color = 'k', bbox = dict(facecolor = 'white', alpha = 0.8))
 			if i < (nunits-1):
 				ax.set_xticks([]);
@@ -468,7 +478,7 @@ def rf_contact_sheet(experiments):
 
 	
 		fig.savefig(os.path.join(basedir, 'rf_' + experiment + '.png'))
-	
+		fig.clf()
 
 def findmaxcluster(B, cf = None, include_diagonal = False):
 	'''
