@@ -820,8 +820,7 @@ for path in fpaths:
 	if relat.find(' ')>-1:
 		shutil.move(path, os.path.join(absol, relat.replace(' ', '0')))
 
-p = re.compile('(\d+)')
-onset_time_ix = 50
+
 
 # Gens = np.empty(0, 'S2')
 # Exps = np.empty(0, 'S3')
@@ -833,6 +832,9 @@ onset_time_ix = 50
 # Xloc = np.empty(0, np.float32)
 # Yloc = np.empty(0, np.float32)
 
+p = re.compile('(\d+)')
+onset_time_ix = 50
+
 dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('cf', 'f4'), ('peak_time', 'f4'), ('on_time', 'f4'), ('x', 'f4'), ('y', 'f4'), ('psth', '333f4'), ('rf', '(8,43)f4')])
 
 db = np.empty(0, dtype = dtype)
@@ -841,21 +843,22 @@ db = np.empty(0, dtype = dtype)
 for experiment in experiments:
 	rfpaths = glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5'))
 	cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'))
-	xys = np.loadtxt(os.path.join(basedir, experiment, 'xys.txt'))
+	# xys = np.loadtxt(os.path.join(basedir, experiment, 'xys.txt'))
 	_, gen, exp, sess = experiment.split('_')
 	for rfpath in rfpaths:
 		absol, relat = os.path.split(rfpath)
 		fname, ext = os.path.splitext(relat)
 		unitnum = np.int32(p.findall(fname)[0])
 		cf = cfs[cfs[:, 0]==unitnum, 1][0]
-		xy = xys[xys[:, 0]==unitnum, 1:][0]
+		# xy = xys[xys[:, 0]==unitnum, 1:][0]
+		xy = [None, None]
 		f = h5py.File(rfpath, 'r')
 		rast = f['rast'].value
 		stimparams = f['stimID'].value
 		f.close()
 		
 		# ix = stimparams[:, 1]>10
-		psth = rast.sum(0)
+		psth = rast[:, :333].sum(0)
 		psth_smoo = Spikes.hamming_smoo(psth, windlen = 5)
 		
 		peak_time = (psth_smoo[55:100].argmax() + 5) / 1000.
@@ -909,18 +912,26 @@ for experiment in experiments:
 	np.savetxt(os.path.join(basedir, experiment, 'xy.txt'), xy)
 	
 
+basedir = '/Volumes/BOB_SAGET/Fmr1_Heesoo/A1/'
+condpaths = glob.glob(os.path.join(basedir, '*'))
+for condpath in condpaths:
+	absol, cond = os.path.split(condpath)
+	sesspaths = glob.glob(os.path.join(basedir, cond, '*'))
+	for sesspath in sesspaths:
+		_, sess = os.path.split(sesspath)
+		shutil.move(sesspath, os.path.join(basedir, '_'.join((cond, sess))))
+	
+	
+	
+	
+	
 
-
-
-
-
 		
 		
 		
 		
 		
-		
-		
+	
 		
 		
 		
