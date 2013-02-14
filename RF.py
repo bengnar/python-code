@@ -701,7 +701,39 @@ def plot_rf(rf, bw_lr = None, cf = None, thresh = None, ax = None, cmap = 'gray'
 	plt.show()
 	
 	return ax
+
+def myconv(x, wind = None):
+	if wind is None:
+		wind = np.hanning(5)
+		wind = wind / wind.sum()
 	
+	return np.convolve(x, wind, 'same')	
+
+def calc_latency_by_stim(rast, stimparams):
+	
+	stim_psth, _ = Spikes.calc_psth_by_stim(rast, stimparams, bins = np.arange(0, 0.334, 0.001))
+	stim_psth_smoo = np.apply_along_axis(myconv, 2, stim_psth)
+	stim_peak_times = np.apply_along_axis(np.argmax, 2, stim_psth_smoo)
+	
+	return stim_peak_times
+
+def plot_latency_by_stim(rast, stimparams):
+	
+	rf = calc_rf(rast, stimparams)
+	stim_peak_times = calc_latency_by_stim(rast, stimparams)
+	
+	x = stim_peak_times.copy()
+	x[x>80] = 80
+	x[x<50] = 50
+
+	fig = plt.figure()
+	ax1 = fig.add_subplot(121)
+	ax2 = fig.add_subplot(122)
+	RF.plot_rf(rf, ax = ax1)
+	RF.plot_rf(x.T, ax = ax2, cmap = 'jet')
+	
+
+
 def add_rf_analysis(frf, funit, stimparams):
 
 	
