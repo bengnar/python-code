@@ -105,9 +105,12 @@ def calc_psth_by_stim(rast, stimparams, bins = 0.001):
 	'''
 	dur_ms = rast.shape[1] # number of milliseconds
 	t_ms = np.arange(dur_ms) # time indices in ms
-	if type(bins) in [int, np.int32]:
+	if type(bins) in (int, np.int32):
 		nbins = bins
 		bins = np.linspace(0, dur_ms, nbins) / 1000
+	elif type(bins) in (float, np.float):
+		bins = np.arange(0, (dur_ms/1000.)+bins, bins)
+		nbins = bins.size-1
 	elif type(bins) is np.ndarray:
 		nbins = bins.size-1
 	
