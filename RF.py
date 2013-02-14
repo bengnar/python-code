@@ -1,15 +1,10 @@
-import numpy as np
-import os, glob
+import os, glob, h5py, re
 import matplotlib.pyplot as plt
-import glob
-import h5py
-import re
-import pylab
+import numpy as np
 from scipy.ndimage import gaussian_filter
 from scipy.stats import linregress
-import Spikes
-import RF; reload(RF)
-import RR; reload(RR)
+import Spikes, RF, RR
+import misc
 
 # basedir = '/Volumes/BOB_SAGET/Fmr1_RR'
 basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
@@ -732,7 +727,29 @@ def plot_latency_by_stim(rast, stimparams):
 	RF.plot_rf(rf, ax = ax1)
 	RF.plot_rf(x.T, ax = ax2, cmap = 'jet')
 	
+def calc_fake_strf(rast, stimparams):
+	'''
+	2-d matrix no.freqs x no.time bins, values are spontaneous firing rate. basically each row is a psth for a particular frequency
+	'''
+	
+	stim_psth, _ = Spikes.calc_psth_by_stim(rast, stimparams)
+	fake_strf = stim_psth.mean(1)
+	
+	return fake_strf
 
+def plot_fake_strf(rast, stimparams):
+	
+	fig = plt.figure()
+	ax1 = fig.add_axes([0.05, 0.2, 0.9, 0.75])
+	ax2 = fig.add_axes([0.05, 0.05, 0.9, 0.15])
+	
+	fake_strf = calc_fake_strf(rast, stimparams)
+	RF.plot_rf(fake_strf, ax = ax1, axes_on = False)
+	psth = fake_strf.mean(0)
+	psth_smoo = Spikes.hamming_smoo(psth, windlen = 5)
+	ax2.plot(psth_smoo)
+	ax2.set_xlim([0, rast.shape[1]])
+	plt.draw(); plt.show();
 
 def add_rf_analysis(frf, funit, stimparams):
 
