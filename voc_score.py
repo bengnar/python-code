@@ -13,7 +13,7 @@ cages = None
 
 class Score():
 
-	def __init__(self, basedir, cages):
+	def __init__(self, basedir, cages = None):
 	
 		self.hits = np.empty((0, 2), dtype = 'float32')
 		self.counter = -1
@@ -33,7 +33,7 @@ class Score():
 			print sessdirs
 			for sessdir in sessdirs:
 				sess = os.path.split(sessdir)[-1]
-				for i in np.arange(0, 10, 1):
+				for i in np.arange(0, 60, 10): # set which files to do
 					relat = '%s_%s_%2.2d' % (cage, sess, i)
 					new_fname = os.path.join(basedir, 'Cages', cage, sess, relat+'.npz')
 					new_savepath = os.path.join(basedir, 'analysis', 'gui_count_output', relat+'.txt')

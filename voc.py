@@ -209,7 +209,6 @@ def compress_file(fname, v = True):
 def compress_sess(sessdir, v = True):
 	
 	fnames = np.sort(glob.glob(os.path.join(sessdir, '*')))
-	print fnames
 	fnames = [fname for fname in fnames if not len(os.path.splitext(fname)[-1])]
 	for fname in fnames:
 		absol, ext = os.path.splitext(fname)
@@ -221,7 +220,7 @@ def compress_sess(sessdir, v = True):
 			except:
 				print 'File not saved!'
 	
-def run_compress_sess():
+def compress_sess_all():
 	
 	cagedirs = np.sort(glob.glob(os.path.join(basedir, 'Cages', '*')))
 	for cagedir in cagedirs:
@@ -240,12 +239,12 @@ def calc_specgram_all():
 	
 	for cagedir in cagedirs:
 		cage = os.path.split(cagedir)[1]
-		print cage
+		print 'Cage %s' % cage
 		sessdirs = glob.glob(os.path.join(cagedir, 'P*'))
 		sessdirs.sort()
 		for sessdir in sessdirs:
 			_, sess = os.path.split(sessdir)
-			print sess
+			print 'Session %s' % sess
 			chunks = glob.glob(os.path.join(sessdir, '*.h5'))
 			chunks.sort()
 			for chunk in chunks:
@@ -274,12 +273,15 @@ def lowpass_spec(P, F):
 
 def calc_specgram(fname):
 	
+	# load raw spectrogram
 	P, F, T = load_spec(fname)
 	
+	# remove low frequencies
 	P, F = lowpass_spec(P, F)
 	P = zscore_spec(P)
 	
-	thresh_ = P.mean(1)	
+	# threshold
+	thresh_ = P.mean(1)	# calculate mean for each frequency
 	thresh1 = np.tile(thresh_, (P.shape[1], 1)).T
 	P_thresh = P.copy()
 	P_thresh[P_thresh < thresh1] = 0
