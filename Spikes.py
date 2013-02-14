@@ -274,16 +274,16 @@ def plot_raster(rast, ax = None):
 	return ax
 
 
-def rast2spktimes(rast, ix_times):
-	
-	psth = rast.sum(0)
-	spktimes = np.empty(psth.sum())
-	i = 0
-	for ix_time, bin in zip(ix_times, psth):
-		spktimes[i:i+bin] = ix_time
-		i += bin
-	
-	return spktimes
+# def rast2spktimes(rast, ix_times):
+# 	
+# 	psth = rast.sum(0)
+# 	spktimes = np.empty(psth.sum())
+# 	i = 0
+# 	for ix_time, bin in zip(ix_times, psth):
+# 		spktimes[i:i+bin] = ix_time
+# 		i += bin
+# 	
+# 	return spktimes
 
 def make_spktimes_matrix(rast_shape):
 	
@@ -294,7 +294,8 @@ def make_spktimes_matrix(rast_shape):
 def rast2spktimes(rast):
 	
 	spktimes_mat = make_spktimes_matrix(rast.shape)
-	spktimes = spktimes_mat[rast.astype(np.bool)] / 1000.
+	# ok a little weird, but you have to add 0.1 ms to avoid edge effects when you bin on millisecond bin edges, just trust me
+	spktimes = 0.0001+spktimes_mat[rast.astype(np.bool)] / 1000.
 	return spktimes
 	
 	
