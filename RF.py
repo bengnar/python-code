@@ -657,7 +657,7 @@ def calc_bw_thresh(B):
 			
 	return bw, bw_lr, thresh
 		
-def plot_rf(rf, bw_lr = None, cf = None, thresh = None, ax = None):
+def plot_rf(rf, bw_lr = None, cf = None, thresh = None, ax = None, cmap = 'gray', axes_on = True, **kwargs):
 	
 	if type(rf) is h5py.File:
 		rast = rf['rast'].value
@@ -671,9 +671,10 @@ def plot_rf(rf, bw_lr = None, cf = None, thresh = None, ax = None):
 	else:
 		fig = ax.get_figure()	
 	
-	im = ax.imshow(rf, interpolation = 'nearest', aspect = 'auto', cmap = 'gray', origin = 'upper')
-	cb = fig.colorbar(im)
-	cb.set_label('Firing rate (spikes/s)')
+	im = ax.imshow(rf, interpolation = 'nearest', aspect = 'auto', cmap = cmap, origin = 'upper', **kwargs)
+	if axes_on:
+		cb = fig.colorbar(im, ax = ax)
+		cb.set_label('Firing rate (spikes/s)')
 	
 	if bw_lr is not None:
 		j = 0
@@ -688,14 +689,15 @@ def plot_rf(rf, bw_lr = None, cf = None, thresh = None, ax = None):
 	if thresh is not None:
 		ax.axhline(thresh, color = 'g', ls = '--')
 	
-	ax.set_ylim([rf.shape[0]-0.5, -0.5])
-	ax.set_xlim([-0.5, rf.shape[1]-0.5])
-	ax.set_xticks(np.arange(0, nfreqs, 10))
-	ax.set_xticklabels([('%0.0f' % (f/1000.)) for f in ix2freq[20:][np.arange(0, nfreqs, 10)]])
-	ax.set_xlabel('Frequency (kHz)')
-	ax.set_yticks(np.arange(0, nattens))
-	ax.set_yticklabels(np.arange((nattens-1)*10, -1, -10))
-	ax.set_ylabel('Sound Intensity (db SPL)')
+	if axes_on:
+		ax.set_ylim([rf.shape[0]-0.5, -0.5])
+		ax.set_xlim([-0.5, rf.shape[1]-0.5])
+		ax.set_xticks(np.arange(0, nfreqs, 10))
+		ax.set_xticklabels([('%0.0f' % (f/1000.)) for f in ix2freq[20:][np.arange(0, nfreqs, 10)]])
+		ax.set_xlabel('Frequency (kHz)')
+		ax.set_yticks(np.arange(0, nattens))
+		ax.set_yticklabels(np.arange((nattens-1)*10, -1, -10))
+		ax.set_ylabel('Sound Intensity (db SPL)')
 	plt.show()
 	
 	return ax
