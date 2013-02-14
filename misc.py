@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+import pandas as pd
 import os
 import scipy.stats as st
 import itertools
@@ -445,7 +446,18 @@ def make_combinations(x):
 	for i in itertools.product(*ulevels):
 		print i
 		
-		
+def np_to_pd(x):
+	
+	df = pd.DataFrame(index = np.arange(x.size))
+	for i in x.dtype.descr:
+		if not len(i)>2:
+			df[i[0]] = x[i[0]]
+	
+	return df
+	
+	
+	
+	
 		
 		
 		
