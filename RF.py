@@ -739,7 +739,7 @@ def calc_fake_strf(rast, stimparams):
 
 def plot_fake_strf(rast, stimparams):
 	
-	fig = plt.figure()
+	fig = plt.figure(figsize = (15, 10))
 	ax1 = fig.add_axes([0.05, 0.2, 0.9, 0.75])
 	ax2 = fig.add_axes([0.05, 0.05, 0.9, 0.15])
 	
@@ -750,6 +750,8 @@ def plot_fake_strf(rast, stimparams):
 	ax2.plot(psth_smoo)
 	ax2.set_xlim([0, rast.shape[1]])
 	plt.draw(); plt.show();
+
+	return fig
 
 def add_rf_analysis(frf, funit, stimparams):
 

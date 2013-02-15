@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import pandas as pd
-import os
+import os, h5py
 import scipy.stats as st
 import itertools
 import Tkinter
@@ -455,6 +455,39 @@ def np_to_pd(x):
 	
 	return df
 	
+	
+def get_rast_stimparams_from_df(df_, studyprefix = 'rr', unitprefix = 'RR', basedir = '/Volumes/BOB_SAGET/Fmr1_RR'):
+	
+	path = os.path.join(basedir, 'Sessions', '%s_%s_%s_%s' % (studyprefix, df_['gen'], df_['exp'], df_['sess']), 'fileconversion', '%s%3.3i.h5' % (unitprefix, df_['unit']))
+	if os.path.exists(path):
+		print 'Loading %s' % path
+		f = h5py.File(path, 'r')
+	
+		rast = f['rast'].value
+		stimparams = f['stimID'].value
+
+		f.close()
+	else:
+		print 'Could not find %s' % path
+		return None, None
+		
+	return rast, stimparams
+
+def add_unity_line(ax = None, **kwargs):
+	if ax is None:
+		ax = plt.gca()
+	
+	xlim = ax.get_xlim()
+	ylim = ax.get_ylim()
+	minlim = min((xlim[0], ylim[0]))
+	maxlim = max((xlim[1], ylim[1]))
+
+	ax.plot([minlim, maxlim], [minlim, maxlim], **kwargs)
+	
+	ax.set_xlim(xlim)
+	ax.set_ylim(ylim)
+	
+	plt.draw()	
 	
 	
 	

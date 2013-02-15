@@ -835,7 +835,7 @@ for path in fpaths:
 p = re.compile('(\d+)')
 onset_time_ix = 50
 
-dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('cf', 'f4'), ('peak_time', 'f4'), ('on_time', 'f4'), ('x', 'f4'), ('y', 'f4'), ('psth', '333f4'), ('rf', '(8,43)f4')])
+dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('cf', 'f4'), ('peak_time', 'f4'), ('on_time', 'f4'), ('cf_on_time', 'f4'), ('x', 'f4'), ('y', 'f4'), ('psth', '333f4'), ('cf_psth', '333f4'), ('rf', '(8,43)f4')])
 
 db = np.empty(0, dtype = dtype)
 
@@ -859,15 +859,25 @@ for experiment in experiments:
 		
 		# ix = stimparams[:, 1]>10
 		psth = rast[:, :333].sum(0)
-		psth_smoo = Spikes.hamming_smoo(psth, windlen = 5)
+		psth_smoo = Spikes.hamming_smoo(psth, windlen = 3)
 		
 		peak_time = (psth_smoo[55:100].argmax() + 5) / 1000.
 		on_time, _ = Spikes.calc_on_off(psth_smoo)
+		on_time = on_time / 1000.
+
+		stim_psth, _ = Spikes.calc_psth_by_stim(rast[:, :333], stimparams)
+		cf_int = np.int32(cf)
+		
+		cf_psth = stim_psth[cf_int-3:cf_int+2, :, :].sum(0).sum(0)
+		cf_psth = cf_psth / cf_psth.max()
+		cf_psth_smoo = Spikes.hamming_smoo(psth, windlen = 3)
+		cf_on_time, _ = Spikes.calc_on_off(cf_psth_smoo)
+		cf_on_time = cf_on_time / 1000.
 		
 		rf = RF.calc_rf(rast, stimparams)
 		
 		db.resize(db.size+1)
-		db[-1] = np.array((gen, exp, sess, unitnum, cf, peak_time, on_time, xy[0], xy[1], psth, rf), dtype = dtype)
+		db[-1] = np.array((gen, exp, sess, unitnum, cf, peak_time, on_time, cf_on_time, xy[0], xy[1], psth, cf_psth, rf), dtype = dtype)
 		
 		# Gens = np.hstack((Gens, gen))
 		# Exps = np.hstack((Exps, exp))
@@ -881,6 +891,8 @@ for experiment in experiments:
 		
 # df = pd.DataFrame(dict(gen = Gens, exp = Exps, sess = Sesss, unit = Unitnums, cf = Cfs, peak_time = Peak_times, on_time = On_times, x = Xloc, y = Yloc))
 		
+
+
 grouped = df.groupby('exp')
 means = grouped.mean()
 stds = grouped.std()
@@ -921,12 +933,34 @@ for condpath in condpaths:
 		_, sess = os.path.split(sesspath)
 		shutil.move(sesspath, os.path.join(basedir, '_'.join((cond, sess))))
 	
+for i in range(158, 178):
 	
-	
-	
+	df_ = df.ix[i]
+	rast, stimparams = misc.get_rast_stimparams_from_df(df_, unitprefix = 'RF')
+	fig = RF.plot_fake_strf(rast, stimparams)
+	fig.savefig(os.path.join(basedir, 'Analysis', 'fake_strf_%3.3i.png' % i))
+	plt.close(fig)
 	
 
-		
+def mysem(x):
+	return x.std() / np.sqrt(x.size)
+	
+
+x = np.load('/Volumes/BOB_SAGET/Fmr1_RR/latency.npz')['arr_0']
+df = misc.np_to_pd(x)
+df['cf_bin'] = pd.cut(df.cf, [0, 20, 30, 40])
+
+ganimal = df.groupby(['gen', 'exp', 'sess', 'cf_bin'])
+animal_mean = ganimal.agg({'peak_time' : np.mean, 'on_time' : np.mean})
+gcond = animal_mean.groupby(level = ['cf_bin', 'exp', 'gen'])
+cond_mean = gcond.agg(np.mean)
+cond_sem = gcond.agg(mysem)
+
+cond_mean.plot(kind = 'bar')
+
+'''
+calculate psth kurtosis
+'''
 		
 		
 		

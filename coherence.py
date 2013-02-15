@@ -4,29 +4,32 @@ import nitime as nt
 import nitime.viz as viz
 from nitime.analysis import SNRAnalyzer
 
-basedir = '/Volumes/BOB_SAGET/Fmr1_RR'
+basedir = '/Volumes/BOB_SAGET/Fmr1_voc'
 
 def calc_coherence_all(experiment, lb = 0, ub = 100, prefix = 'VOC'):
 	
+	print experiment
 	_, gen, exp, _ = experiment.split('_')
 	
-	fpaths = glob.glob(os.path.join(basedir, experiment, 'fileconversion', '%s*.h5' % prefix))
+	fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '%s*.h5' % prefix))
 
 	npsth = 16000
 
 	p = re.compile('(\d+)')
-	colnames = ['gen', 'exp', 'sess', 'unit', 'stim', 'Psignal', 'Pnoise', 'snr', 'coh', 'F', 'info_snr']
-	df = pd.DataFrame(columns = colnames)
+	# colnames = ['gen', 'exp', 'sess', 'unit', 'stim', 'Psignal', 'Pnoise', 'snr', 'coh', 'F', 'info_snr']
+	# df = pd.DataFrame(columns = colnames)
 
-	# dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('stim', 'i4'), ('Psignal', '1600f4'), ('Pnoise', '1600f4'), ('snr', '1600f4'), ('coh', '1600f4'), ('F', '1600f4'), ('info_snr', 'f4')])
-	# coh_info = np.empty(0, dtype = dtype)
+	dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('stim', 'i4'), ('Psignal', '1600f4'), ('Pnoise', '1600f4'), ('snr', '1600f4'), ('coh', '1600f4'), ('F', '1600f4'), ('info_snr', 'f4')])
+	coh_info = np.empty(0, dtype = dtype)
 
+	nfpaths = len(fpaths)
 	# loop through penetrations
-	for fpath in fpaths[:1]:
-
+	for j, fpath in enumerate(fpaths):
 		absol, relat = os.path.split(fpath)
 		penname, _ = os.path.splitext(relat)
 		pennum = np.int32(p.findall(penname)[0])
+		
+		print '%s\t(%i of %i)' % (penname, j+1, nfpaths)
 
 		f = h5py.File(fpath, 'r')
 		rast = f['rast'].value
@@ -55,10 +58,10 @@ def calc_coherence_all(experiment, lb = 0, ub = 100, prefix = 'VOC'):
 			fstep = np.diff(F[:2])[0]
 			info_snr = (-np.log2(1-coh)).sum()*fstep
 	
-			# coh_info.resize(coh_info.size+1)
-			# coh_info[-1] = np.array((gen, exp, experiment, pennum, ustim[i], psignal, pnoise, psnr, coh, F, info_snr), dtype = dtype)
-			data = [gen, exp, experiment, pennum, ustim[i], psignal, pnoise, psnr, coh, F, info_snr]
-			df_ = dict(zip(colnames, data))
-			df = df.append(df_, ignore_index = True)
+			coh_info.resize(coh_info.size+1)
+			coh_info[-1] = np.array((gen, exp, experiment, pennum, ustim[i], psignal, pnoise, psnr, coh, F, info_snr), dtype = dtype)
+			# data = [gen, exp, experiment, pennum, ustim[i], psignal, pnoise, psnr, coh, F, info_snr]
+			# df_ = dict(zip(colnames, data))
+			# df = df.append(df_, ignore_index = True)
 
 	return coh_info
