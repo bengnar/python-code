@@ -17,9 +17,9 @@ def get_ix2freq():
 def load_cf(experiment, basedir = basedir, v = True):
 	
 	try:
-		cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'), 'float32', ndmin = 1)
+		cfs = np.loadtxt(os.path.join(basedir, 'Sessions', experiment, 'cfs.txt'), 'float32', ndmin = 1)
 		if v:
-			print 'Found CFs at %s' % os.path.join(basedir, experiment, 'cfs.txt')
+			print 'Found CFs at %s' % os.path.join(basedir, 'Sessions', experiment, 'cfs.txt')
 	except:
 		cfs = np.nan
 		if v:
@@ -102,7 +102,7 @@ def add_bf_man(experiment):
 	'''
 
 
-	rf_blocks = glob.glob(os.path.join(basedir, experiment, 'fileconversion', '*RF*.h5'))
+	rf_blocks = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '*RF*.h5'))
 	cfs = []
 	badunits = []
 	for rf_block in rf_blocks:
@@ -117,8 +117,9 @@ def add_bf_man(experiment):
 		pennum = np.int32(blockname.split('RF')[1])
 	
 		rf = f['rf'].value
-
-		RF.plot_RF(rf, ax = ax)
+		f.close()
+		
+		RF.plot_rf(rf, ax = ax)
 		xlim = ax.get_xlim()
 		ylim = ax.get_ylim()
 		ax.set_xlim([xlim[0]-2, xlim[1]])
@@ -136,7 +137,7 @@ def add_bf_man(experiment):
 		plt.close(fig)
 
 
-		savepath = os.path.join(basedir, experiment, 'cfs.txt')
+		savepath = os.path.join(basedir, 'Sessions', experiment, 'cfs.txt')
 		np.savetxt(savepath, cfs)
 
 		# print badunits
@@ -246,7 +247,7 @@ def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, make
 		if len(unitnums) > 0:
 		
 			unitnums = np.int32(unitnums.split(' '))
-			nonA1path = os.path.join(basedir, experiment, prefix + '.txt')
+			nonA1path = os.path.join(basedir, 'Sessions', experiment, prefix + '.txt')
 			nonA1 = np.empty(0)
 			if os.path.exists(nonA1path):
 				nonA1 = np.loadtxt(nonA1path)
@@ -332,8 +333,8 @@ def remove_no_cf_units(experiment):
 
 	print experiment
 
-	cfs = np.loadtxt(os.path.join(basedir, experiment, 'cfs.txt'))
-	fpaths = glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5'))
+	cfs = np.loadtxt(os.path.join(basedir, 'Sessions', experiment, 'cfs.txt'))
+	fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', 'RF*.h5'))
 	p = re.compile('(\d+)\.h5')
 
 	for fpath in fpaths:
@@ -341,7 +342,7 @@ def remove_no_cf_units(experiment):
 
 		unitnum = np.int32(p.findall(rel))[0]
 		cf = cfs[cfs[:, 0] == unitnum, 1]
-		associated_fpaths = glob.glob(os.path.join(basedir, experiment, 'fileconversion', '*%3.3u.h5' % unitnum))
+		associated_fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '*%3.3u.h5' % unitnum))
 		if (cf.size) == 0 or np.isnan(cf):
 			for apath in associated_fpaths:
 				_, rel = os.path.split(apath)
@@ -360,12 +361,12 @@ def remove_units(experiments, kind = 'nonA1'):
 	for experiment in experiments:
 		print experiment
 
-		nona1_path = os.path.join(basedir, experiment, kind + '.txt')
+		nona1_path = os.path.join(basedir, 'Sessions', experiment, kind + '.txt')
 		if os.path.exists(nona1_path):
 			nona1 = np.loadtxt(nona1_path, ndmin = 1)
-			absol = os.path.join(basedir, experiment, 'fileconversion')
+			absol = os.path.join(basedir, 'Sessions', experiment, 'fileconversion')
 			for nona1_ in nona1:
-				files = glob.glob(os.path.join(basedir, experiment, 'fileconversion', '*%3.3i*' % nona1_))
+				files = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '*%3.3i*' % nona1_))
 				# rename all h5 files in the fileconversion folder with this unit number
 				for f in files:
 					absol, rel = os.path.split(f)
@@ -373,7 +374,7 @@ def remove_units(experiments, kind = 'nonA1'):
 						os.rename(f, os.path.join(absol, '_'+rel))
 				
 				# delete all analysis files in the analysis folder with this unit number
-				files = glob.glob(os.path.join(basedir, experiment, 'analysis', '*%3.3i*' % nona1_))
+				files = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'analysis', '*%3.3i*' % nona1_))
 				for f in files:
 					os.remove(f)
 			
@@ -403,19 +404,19 @@ def remove_from_DB(experiment, remove = 'nonfollowing'):
 	print experiment
 
 	if type(remove) is str:
-		rempath = os.path.join(basedir, experiment, remove + '.txt')
+		rempath = os.path.join(basedir, 'Sessions', experiment, remove + '.txt')
 		remove = np.loadtxt(rempath, ndmin = 1)
 
-	DB = np.load(os.path.join(basedir, experiment, experiment + '_DB.npz'))['DB']
+	DB = np.load(os.path.join(basedir, 'Sessions', experiment, experiment + '_DB.npz'))['DB']
 	
 	for rem in remove:
 		DB = DB[DB['unit']!=rem]
 		try: # try to remove contact sheets too
-			os.remove(os.path.join(basedir, experiment, 'analysis', 'RR%3.3i.png' % rem))
+			os.remove(os.path.join(basedir, 'Sessions', experiment, 'analysis', 'RR%3.3i.png' % rem))
 		except:
 			pass
 			
-	np.savez(os.path.join(basedir, experiment, experiment + '_DB.npz'), DB = DB)
+	np.savez(os.path.join(basedir, 'Sessions', experiment, experiment + '_DB.npz'), DB = DB)
 
 def threshold_rf(rf, thresh_mag = 0.25):
 	
@@ -431,13 +432,13 @@ def rf_contact_sheet(experiments):
 
 	fig = plt.figure(figsize = (16, 12))
 	for experiment in experiments:
-		cf_path = os.path.join(basedir, experiment, 'cfs.txt')
+		cf_path = os.path.join(basedir, 'Sessions', experiment, 'cfs.txt')
 		if os.path.exists(cf_path):
 			cfs = np.loadtxt(cf_path)
 		else:
 			cfs = None
 
-		units = glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5'))
+		units = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', 'RF*.h5'))
 		units = np.sort(units)
 		nunits = len(units)
 		ncols = np.ceil(np.sqrt(nunits))

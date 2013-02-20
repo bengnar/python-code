@@ -37,6 +37,7 @@ VOC = dict(nbins=20000))
 nchanperblockdict = {'b' : 4, 'i' : 16}
 # studydir = '/Users/robert/Desktop/tetrode_test'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
+studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/for_shaowen/'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_KO_ising/Sessions/good/'
 
@@ -63,12 +64,12 @@ def fileconvert(sessions, studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 		print session
 
 		#get [b|r|etc]##.mat file names
-		files = glob.glob(os.path.join(studydir, session, 'data', '[vr]*.mat'))
+		files = glob.glob(os.path.join(studydir, 'Sessions', session, 'data', 'b*.mat'))
 		nfiles = len(files)
 		
 		# make the destination directory if it doesn't exist (~/fileconversion/)
-		if not os.path.exists(os.path.join(studydir, session, 'fileconversion')):
-			os.mkdir(os.path.join(studydir, session, 'fileconversion'))
+		if not os.path.exists(os.path.join(studydir, 'Sessions', session, 'fileconversion')):
+			os.mkdir(os.path.join(studydir, 'Sessions', session, 'fileconversion'))
 
 		blockinfo = []
 
@@ -113,7 +114,7 @@ def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coo
 	if coords is None:
 		coords = load_coords(session)
 	
-	tempfile = scipy.io.loadmat(os.path.join(studydir, session, 'data', blockID + '.mat')) # load the .mat file0
+	tempfile = scipy.io.loadmat(os.path.join(studydir, 'Sessions', session, 'data', blockID + '.mat')) # load the .mat file0
 	Data0 = tempfile['Data'] # save the Data file0 to a temporary variable
 	# Data0 = tempfile['data'] # when converting already separated penetrations
 
@@ -129,12 +130,12 @@ def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coo
 	for cc in range(nchan):
 
 		if chanorder is None:
-			siteno = ((blocknum-1)*npenperblock) + cc + 1
+			siteno = ((blocknum-1)*electrodeinfo['npenperblock']) + cc + 1
 		elif len(chanorder.shape) == 2:
-			siteno =((blocknum-1)*npenperblock) + (chanorder == cc+1).nonzero()[1][0]+1
+			siteno =((blocknum-1)*electrodeinfo['npenperblock']) + (chanorder == cc+1).nonzero()[1][0]+1
 			print cc+1, siteno
 	
-		savepath = os.path.join(studydir, session, 'fileconversion', '%s%3.3u.h5' % (prefix[blockID[0]], siteno))
+		savepath = os.path.join(studydir, 'Sessions', session, 'fileconversion', '%s%3.3u.h5' % (prefix[blockID[0]], siteno))
 		u_ = h5py.File(savepath, 'w')
 		unit(u_, Data0, cc, blockID, nbins = stimulusinfo['nbins'])
 
@@ -195,11 +196,11 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 
 			# end if valid ID
 
-	# # stoopid TDT shift
-	# stimID = stimID[1:, :]
-	# rast = rast[:-1, :]
-	# lfp = lfp[:-1, :]
-	# spkwaveform = spkwaveform[spktrials<(rast.shape[0]-1)]
+	# stoopid TDT shift
+	stimID = stimID[1:, :]
+	rast = rast[:-1, :]
+	lfp = lfp[:-1, :]
+	spkwaveform = spkwaveform[spktrials<(rast.shape[0]-1)]
 
 
 	remID = np.array([0., 0.])
@@ -229,9 +230,9 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 def load_coords(session, v = True):
 	
 	try:
-		coords = np.loadtxt(os.path.join(studydir, session, 'experimentfiles', session + '.txt'), ndmin = 1)
+		coords = np.loadtxt(os.path.join(studydir, 'Sessions', session, 'experimentfiles', session + '.txt'), ndmin = 1)
 		if v:
-			print 'Found coordinates at %s' % os.path.join(studydir, session, 'experimentfiles', session + '.txt')
+			print 'Found coordinates at %s' % os.path.join(studydir, 'Sessions', session, 'experimentfiles', session + '.txt')
 	except:
 		coords = np.nan
 		if v:
@@ -242,9 +243,9 @@ def load_coords(session, v = True):
 def load_cfs(session, v = True):
 
 	try:
-		cfs = np.loadtxt(os.path.join(studydir, session, 'cfs.txt'), 'float32', ndmin = 1)
+		cfs = np.loadtxt(os.path.join(studydir, 'Sessions', session, 'cfs.txt'), 'float32', ndmin = 1)
 		if v:
-			print 'Found CFs at %s' % os.path.join(studydir, session, 'cfs.txt')
+			print 'Found CFs at %s' % os.path.join(studydir, 'Sessions', session, 'cfs.txt')
 	except:
 		cfs = np.nan
 		if v:

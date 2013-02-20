@@ -21,8 +21,7 @@ def samexaxis(ax, xlim = None):
 	else:
 		(minx, maxx) = xlim
 		
-	for ax_ in ax:
-		ax_.set_xlim([minx, maxx])
+	[a.set_xlim([minx, maxx]) for a in ax]
 	
 def sameyaxis(ax):
 
@@ -34,23 +33,24 @@ def sameyaxis(ax):
 		miny = np.min([miny, ylim[0]])
 		maxy = np.max([maxy, ylim[1]])
 
-	for ax_ in ax:
-		ax_.set_ylim([miny, maxy])
+	[a.set_ylim([miny, maxy]) for a in ax]
 	
 def closest(vec, x, log = False):
 	
 	if log:
-		vec = np.log10(vec)
+		orig_vec = vec.copy()
+		vec = np.log10(orig_vec)
 		x = np.log10(x)
 	differ = np.abs(vec - x)
 	min_differ = differ.min()
-	ix = (differ == min_differ).nonzero()[0][0]
-	val_ = vec[ix]
-	error = val_ - x
+	ix = differ.argmin()
 	if log:
-		val = 10**val_
+		val = orig_vec[ix]
+		error = vec[ix] - x
 	else:
-		val = val_
+		val = vec[ix]
+		error = val - x
+
 
 	return val, ix, error
 	
@@ -450,9 +450,15 @@ def np_to_pd(x):
 	
 	df = pd.DataFrame(index = np.arange(x.size))
 	for i in x.dtype.descr:
-		if not len(i)>2:
-			df[i[0]] = x[i[0]]
-	
+		if len(i)==2:
+			name, dtype = i
+			df[name] = x[name]
+		elif len(i)==3:
+			name, dtype, shape = i
+			if len(shape)==1 and shape[0]<20:
+				for j in xrange(shape[0]):
+					df['%s%2.2i' % (name, j+1)] = x[name][:, j]
+		
 	return df
 	
 	

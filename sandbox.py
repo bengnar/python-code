@@ -958,15 +958,19 @@ cond_sem = gcond.agg(mysem)
 
 cond_mean.plot(kind = 'bar')
 
+
+
 '''
-calculate psth kurtosis
+
+
 '''
-		
-		
-		
+for experiment in experiments:
+	coh_info = coherence.calc_coherence_all(experiment)
+	np.savez(os.path.join(basedir, 'Analysis', '%s_coh_info2.npz' % experiment), coh_info)
 		
 	
-		
+
+	
 		
 		
 		
