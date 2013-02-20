@@ -201,6 +201,7 @@ def run_power_search():
 def compress_file(fname, v = True):
 	f = open(fname, 'rb')
 	s, fs = bin2arr(f)
+	f.close()
 	f = h5py.File(fname + '.h5')
 	f.create_dataset('s', data = s, compression = 'gzip')
 	f.create_dataset('fs', data = fs)
@@ -283,12 +284,12 @@ def calc_specgram(fname):
 	# threshold
 	thresh_ = P.mean(1)	# calculate mean for each frequency
 	thresh1 = np.tile(thresh_, (P.shape[1], 1)).T
-	P_thresh = P.copy()
-	P_thresh[P_thresh < thresh1] = 0
+	# P_thresh = P.copy()
+	P[P < thresh1] = 0
 	# thresh2 = 4E-11
 	# Pxx_thresh[Pxx_thresh < thresh2] = 0
 	
-	P_lil = lil_matrix(P_thresh)
+	P_lil = lil_matrix(P)
 	
 	newfname = os.path.splitext(fname)[0] + '.npz'
 	np.savez(newfname, P = P_lil, F = F, T = T)
