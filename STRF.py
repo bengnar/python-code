@@ -12,15 +12,16 @@ import Spikes
 import misc
 
 # from text.movie.util.util import save_table_file
-from STRF_utils_sparse import make_delayed, sp_make_delayed, counter
-from ridge_sparse import eigridge
+from STRF_utils import make_delayed, sp_make_delayed, counter
+from ridge import eigridge
 
-from STRF_model_significance_sparse import correlation_pvalue, exact_correlation_pvalue, rolled_correlation_pvalue, shuffled_correlation_pvalue
+from STRF_model_significance import correlation_pvalue, exact_correlation_pvalue, rolled_correlation_pvalue, shuffled_correlation_pvalue
 
 studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
 nalphas = 60
+nstims = 3
 
-dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('cf', 'f4'), ('stim', 'i4'), ('alphas', '%if4' % nalphas), ('wts', '(%i,540)f4' % nalphas), ('test_pred', '(320,%i)f4' % nalphas), ('train_corr', '%if4' % nalphas), ('test_corr', '%if4' % nalphas), ('test_corr_pval', '%if4' % nalphas)])
+dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('sess', 'S20'), ('unit', 'i4'), ('cf', 'f4'), ('stim_psth', '(%i,3200)f4' % nstims), ('stim', '%ii4' % nstims), ('alphas', '%if4' % nalphas), ('best_alpha', 'f4'), ('wts', '(540,%i)f4' % nstims), ('test_pred', '(320,%i)f4' % nstims), ('train_corr', '(%i,%i)f4' % (nstims, nalphas)), ('test_corr', '(%i,%i)f4' % (nstims, nalphas)), ('test_corr_pval', '(%i,%i)f4' % (nstims, nalphas))])
 
 p = re.compile('(\d+)')
 
@@ -43,15 +44,14 @@ def fit_strfs_all(experiments):
 			unitnum = np.int32(p.findall(fname)[0])
 			figtitle = os.path.splitext(fpath)[0]
 			resps = load_responses(fpath)
-			resps = (resps - resps.mean()) / resps.std()
+			resps = (resps - resps.mean()) / resps.std() # zscore responses
 			db_ = fit_strfs(stims, resps, figtitle = figtitle, nalphas = nalphas, ndelays = 10)
 			db_['gen'] = gen
 			db_['exp'] = exp
 			db_['sess'] = sess
 			db_['unit'] = unitnum
-			for j in xrange(nstims):
-				db.resize(db.size+1)
-				db[-1] = db_[j]
+			db.resize(db.size+1)
+			db[-1] = db_
 	
 	return db
 
@@ -59,20 +59,16 @@ def fit_strfs(stims, resps, figtitle = 'tmp', nalphas = 60, ndelays = 10, ax = N
 	
 	# ax, fig = misc.axis_check(ax)
 	## Run the STRF fitting
-	alphas = np.hstack((0, np.logspace(-30, 30, nalphas-1))) # 10^-2 to 10^5, 45 times
+	alphas = np.hstack((0, np.logspace(-40, 10, nalphas-1))) # 10^-2 to 10^5, 45 times
 	
 	_, nfreqs, nstims = stims.shape
-	# wts = []
-	# corrs = []
-	# sta = []
-	# tcorrs = [] #test correlation
-	# tcorrpvals = [] # test correlation pvals
+
+	Wts = np.empty((540, nstims, nalphas))
+	Test_pred = np.empty((320, nstims, nalphas))
+	Train_corr = np.empty((nstims, nalphas))
+	Test_corr = np.empty((nstims, nalphas))
+	Test_corr_pval = np.empty((nstims, nalphas))
 	
-	# fig = plt.figure()
-	# ax = []
-	# for j in range(10):
-	# 	ax.append(fig.add_subplot(2, 5, j+1))
-	db_ = np.empty(nstims, dtype = dtype)
 	for i in range(nstims):
 		stimnum = i+1
 		stim = sparse.csc_matrix(stims[..., i])
@@ -86,16 +82,26 @@ def fit_strfs(stims, resps, figtitle = 'tmp', nalphas = 60, ndelays = 10, ax = N
 
 		# ridge regression on training and validation stim/resp
 		wt, train_corr = eigridge(train_stim, valid_stim, train_resp, valid_resp, alphas, saveallwts = True, verbose = False)
-		strfs = [w.reshape(ndelays, nfreqs)[::-1, :].T for w in wt]
 		# calculate prediction
 		test_pred = test_stim.dot(np.array(wt).squeeze().T)
 		# correlation between prediction and actual response
 		test_corr = [np.corrcoef(tp, test_resp.squeeze())[0,1] for tp in test_pred.T]
 		# significance of pred/actual correlation
-		test_corr_pval = [shuffled_correlation_pvalue(tp, test_resp.squeeze(), nboots = 100) for tp in test_pred.T] #usually 100,000 boots
+		test_corr_pval = [shuffled_correlation_pvalue(tp, test_resp.squeeze(), nboots = 1000) for tp in test_pred.T] #usually 100,000 boots
 
+		Wts[:, i, :] = np.array(wt).squeeze().T
+		Test_pred[:, i, :] = test_pred
+		Train_corr[i, :] = train_corr
+		Test_corr[i, :] = test_corr
+		Test_corr_pval[i, :] = test_corr_pval
+
+		
+	best_ix = Test_corr.mean(0).argmax()
+	best_alpha = alphas[best_ix]
+	best_test_pred = Test_pred[..., best_ix]
+	best_wts = Wts[..., best_ix]
 	
-		db_[i] = np.array(('None', 'None', 'None', -1, -1, stimnum, alphas, np.array(wt).squeeze(), test_pred, train_corr, test_corr, test_corr_pval), dtype = dtype)
+	db_ = np.array(('None', 'None', 'None', -1, -1, resps, np.arange(nstims)+1, alphas, best_alpha, best_wts, best_test_pred, Train_corr, Test_corr, Test_corr_pval), dtype = dtype)
 					# ax[-1].plot(test_corr)
 	
 	return db_
@@ -165,7 +171,6 @@ def split_stim_resp(stim, resp, nchunks = 10, test_chunk = 0, ndelays = 10):
 	ix_test = chunk_ix==test_chunk
 	ix_valid = chunk_ix==train_chunk
 	ix_train = np.vstack((chunk_ix!=test_chunk, chunk_ix!=train_chunk)).all(0)
-	print ix_test.nonzero()[0], ix_valid.nonzero()[0], ix_train.nonzero()
 	
 	delays = range(1, 1 + ndelays)
 	

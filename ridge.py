@@ -1,6 +1,6 @@
 #import scipy
 import numpy as np
-from STRF_utils_sparse import mult_diag, counter
+from STRF_utils import mult_diag, counter
 import random
 import itertools as itools
 from scipy import sparse

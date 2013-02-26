@@ -455,7 +455,7 @@ def np_to_pd(x):
 			df[name] = x[name]
 		elif len(i)==3:
 			name, dtype, shape = i
-			if len(shape)==1 and shape[0]<20:
+			if len(shape)==1 and shape[0]<100:
 				for j in xrange(shape[0]):
 					df['%s%2.2i' % (name, j+1)] = x[name][:, j]
 		
