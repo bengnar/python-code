@@ -297,7 +297,3 @@ def rast2spktimes(rast):
 	# ok a little weird, but you have to add 0.1 ms to avoid edge effects when you bin on millisecond bin edges, just trust me
 	spktimes = 0.0001+spktimes_mat[rast.astype(np.bool)] / 1000.
 	return spktimes
-	
-	
-	
-	
