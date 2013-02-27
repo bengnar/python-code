@@ -55,7 +55,7 @@ def fit_strfs_all(experiments):
 	
 	return db
 
-def fit_strfs(stims, resps, figtitle = 'tmp', nalphas = 500, ndelays = 10, ax = None):
+def fit_strfs(stims, resps, figtitle = 'tmp', nalphas = 250, ndelays = 10, ax = None):
 	
 	## Run the STRF fitting
 	alphas = np.hstack((0, np.logspace(-40, 10, nalphas-1))) # 10^-2 to 10^5, 45 times
@@ -77,7 +77,7 @@ def fit_strfs(stims, resps, figtitle = 'tmp', nalphas = 500, ndelays = 10, ax = 
 	# correlation between prediction and actual response
 	test_corr = [np.corrcoef(tp, test_resp.squeeze())[0,1] for tp in test_pred.T]
 	# significance of pred/actual correlation
-	test_corr_pval = [shuffled_correlation_pvalue(tp, test_resp.squeeze(), nboots = 100000) for tp in test_pred.T] #usually 100,000 boots
+	test_corr_pval = [shuffled_correlation_pvalue(tp, test_resp.squeeze(), nboots = 100) for tp in test_pred.T] #usually 100,000 boots
 	test_corr_pval = -np.ones(nalphas)
 	
 	test_corr = np.asarray(test_corr)
