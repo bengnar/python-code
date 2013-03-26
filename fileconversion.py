@@ -15,7 +15,7 @@
 import pylab
 import scipy.io
 import numpy as np
-import os, glob, h5py, re
+import os, shutil, glob, h5py, re
 import Spikes; reload(Spikes)
 import RF; reload(RF)
 
@@ -34,7 +34,6 @@ RF = dict(nbins=333), \
 RR = dict(nbins=6000), \
 VOC = dict(nbins=20000))
 
-nchanperblockdict = {'b' : 4, 'i' : 16}
 # studydir = '/Users/robert/Desktop/tetrode_test'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
 studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
@@ -42,7 +41,7 @@ studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_KO_ising/Sessions/good/'
 
 def fileconvert(sessions, studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
-, v = True, electrodetype = 'tungsten'):
+, v = True, electrodetype = 'tungsten', convertprefix = 'b'):
 	'''
 	Converts *.mat files into python-friendly *.h5 files.
 	Input:
@@ -64,7 +63,7 @@ def fileconvert(sessions, studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 		print session
 
 		#get [b|r|etc]##.mat file names
-		files = glob.glob(os.path.join(studydir, 'Sessions', session, 'data', 'b*.mat'))
+		files = glob.glob(os.path.join(studydir, 'Sessions', session, 'data', '[%s]*.mat' %  convertprefix))
 		nfiles = len(files)
 		
 		# make the destination directory if it doesn't exist (~/fileconversion/)
@@ -122,18 +121,17 @@ def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coo
 
 	print '\t%s' % blockID
 
-	blockstr = '%s%3.3i' % (prefix[blockID[0]], blocknum)
-	if blockrep is not None:
-		blockstr = '%s_%1.1i' % (blockstr, blockrep)
-	print '\t%s' % blockstr
-
 	for cc in range(nchan):
-
 		if chanorder is None:
 			siteno = ((blocknum-1)*electrodeinfo['npenperblock']) + cc + 1
 		elif len(chanorder.shape) == 2:
 			siteno =((blocknum-1)*electrodeinfo['npenperblock']) + (chanorder == cc+1).nonzero()[1][0]+1
 			print cc+1, siteno
+
+		blockstr = '%s%3.3i' % (prefix[blockID[0]], siteno)
+		if blockrep is not None:
+			blockstr = '%s_%1.1i' % (blockstr, blockrep)
+		print '\t%s' % blockstr
 	
 		savepath = os.path.join(studydir, 'Sessions', session, 'fileconversion', '%s%3.3u.h5' % (prefix[blockID[0]], siteno))
 		u_ = h5py.File(savepath, 'w')
@@ -196,11 +194,11 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 
 			# end if valid ID
 
-	# stoopid TDT shift
-	stimID = stimID[1:, :]
-	rast = rast[:-1, :]
-	lfp = lfp[:-1, :]
-	spkwaveform = spkwaveform[spktrials<(rast.shape[0]-1)]
+	# # stoopid TDT shift
+	# stimID = stimID[1:, :]
+	# rast = rast[:-1, :]
+	# lfp = lfp[:-1, :]
+	# spkwaveform = spkwaveform[spktrials<(rast.shape[0]-1)]
 
 
 	remID = np.array([0., 0.])
@@ -313,6 +311,73 @@ def unpack(f, params = ['rast', 'stimID']):
 		val.append(f[param].value)
 	return val
 
+	
+# def fix_redos(experiment, test = True):
+# 	
+# 	fpath = glob.glob(os.path.join(studydir, 'Sessions', experiment, 'data', '*.mat'))
+# 	(absol, relat) = zip(*[os.path.split(i) for i in fpath])
+# 	fname = [os.path.split(i)[1] for i in fpaths]
+# 	blockname = [os.path.splitext(i)[0] for i in fnames]
+# 	tmp = [i.split('_R') for i in blocknames]
+# 	block = []
+# 	repnum = []
+# 	for t in tmp:
+# 		block.append(t[0])
+# 		if len(t)==1:
+# 			repnum.append(0)
+# 		elif len(t[1])==0:
+# 			repnum.append(1)
+# 		else:
+# 			repnum.append(int(t[1]))
+# 
+# 	df = pd.DataFrame(dict(fpath = fpath, fname = fname, blockname = blockname, block = block, repnum = repnum))
+# 	
+# 	group = df.groupby(block)
+# 	for label, g in group:
+# 		print len(g)
+# 		if len(g)==1:
+# 			path0 = g.fpath.values[0]
+# 			if path0.find('_R')>-1:
+# 				path1 = os.path.join(studydir, 'Sessions', experiment, 'data', '%s.mat' % b[:b.find('_R])
+# 				print 'Moving %s to %s' % (os.path.split(path0)[1], os.path.split(path1)[1])
+# 				if not test:
+# 					shutil.move(path0, path1)
+# 	
+# 	blocks = {blockblocks[0] : [blocknames[0]]}
+# 	for blockname, blockblock in zip(blocknames[1:], blockblocks[1:]):
+# 		if blocks.keys()[-1] == blockblock:
+# 			blocks[blocks.keys()[-1]].append(blockname)
+# 		else:
+# 			blocks[blockblock] = [blockname]
+# 	
+# 	for key in blocks.iterkeys():
+# 		block = blocks[key]
+# 		if len(block)==1:
+# 			b = block[0]
+# 			if b.find('_R')>-1:
+# 				path0 = os.path.join(studydir, 'Sessions', experiment, 'data', '%s.mat' % b)
+# 				path1 = os.path.join(studydir, 'Sessions', experiment, 'data', '%s.mat' % b[:b.find('_R')])
+# 				print 'Moving %s to %s' % (os.path.split(path0)[1], os.path.split(path1)[1])
+# 				if not test:
+# 					shutil.move(path0, path1)
+# 		else:
+# 			for b in block[:-1]:
+# 				path0 = os.path.join(studydir, 'Sessions', experiment, 'data', '%s.mat' % b)
+# 				path1 = os.path.join(studydir, 'Sessions', experiment, 'data', '_%s.mat' % b)
+# 				print 'Moving %s to %s' % (os.path.split(path0)[1], os.path.split(path1)[1])
+# 				if not test:
+# 					shutil.move(path0, path1)
+# 
+# 				
+# 			b = block[-1]
+# 			path0 = os.path.join(studydir, 'Sessions', experiment, 'data', '%s.mat' % b)
+# 			path1 = os.path.join(studydir, 'Sessions', experiment, 'data', '%s.mat' % b[:b.find('_R')])
+# 			print 'Moving %s to %s' % (os.path.split(path0)[1], os.path.split(path1)[1])
+# 			if not test:
+# 				shutil.move(path0, path1)
+
+	
+	
 	
 	
 	

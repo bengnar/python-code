@@ -283,15 +283,15 @@ def medfilt1(x=None,L=None):
 	(upon error or exception, returns None.)
 
 	inputs:
-	    x, Python 1d list or tuple or Numpy array
-	    L, median filter window length
+		x, Python 1d list or tuple or Numpy array
+		L, median filter window length
 	output:
-	    xout, Numpy 1d array of median filtered result; same size as x
+		xout, Numpy 1d array of median filtered result; same size as x
 
 	bdj, 5-jun-2009
 	'''
 
-    # input checks and adjustments 
+	# input checks and adjustments 
 	try:
 		N = len(x)
 		if N < 2:
@@ -309,8 +309,8 @@ def medfilt1(x=None,L=None):
 
 	xin = np.array(x)
 	if xin.ndim != 1:
-	    print 'Error: input sequence has to be 1d: ndim =',xin.ndim
-	    return None
+		print 'Error: input sequence has to be 1d: ndim =',xin.ndim
+		return None
 
 	xout = np.zeros(xin.size)
 
@@ -497,6 +497,45 @@ def add_unity_line(ax = None, **kwargs):
 	
 	
 	
-		
-		
+def plot_matrix(x, N = 10, ax = None, **kwargs):
+	'''
+	plots the mean trace of a matrix and transparent sample traces
+	'''
+	ax, fig = axis_check(ax)
+	
+	l, = ax.plot(x.mean(1), lw = 2, **kwargs)
+	color = l.get_color() 
+	ax.plot(x[:, np.linspace(0, x.shape[1]-1, N).astype(int)], alpha = 0.1, color = color, **kwargs)
+	
+	return ax
+	
+	
+def pd_errorbar(y, yerr, ax = None, **kwds):
+	
+	ax, fig = axis_check(ax)
+
+	colors = kwds.pop('color', 'brgyk')
+
+	ax_pos = np.arange(len(y)) + 0.25
+	tickoffset = 0.375
+
+	K = y.columns.size
+	rects = []
+	labels = []
+	for i, label in enumerate(y.columns):
+		y_ = y[label]
+		yerr_ = yerr[label]
+		kwds['color'] = colors[i % len(colors)]
+		rect = ax.bar(ax_pos + i*0.75/K, y_, 0.75/K, label = label, **kwds)
+		ax.errorbar(ax_pos + (i*0.75/K) + (0.75/K)/2, y_, yerr_, fmt = None, ecolor = 'k')
+		rects.append(rect)
+		labels.append(label)
+	
+	patches = [r[0] for r in rects]
+	ax.legend(patches, labels, loc = 'best')
+	ax.set_xticks(ax_pos + tickoffset)
+	ax.set_xticklabels(y.index.values, rotation = 90)
+	plt.show();		
+
+	return ax
 		

@@ -358,3 +358,20 @@ def rayleigh_test(alpha):
 
 	return p
 	
+def plot_stim_psth(stim_psth, stim_params):
+	
+	fig = plt.figure();
+	nfreqs, nrrs, nbins = stim_psth.shape
+	i = 0
+	rrs = stim_params[1]
+	for r in xrange(nrrs):
+		for f in xrange(nfreqs):
+			i += 1
+			ax = fig.add_subplot(nrrs, nfreqs, i)
+			ax.plot(Spikes.exp_smoo(stim_psth[f, r, :]))
+			plot_tone_pips(rrs[r], rrs[r], 0.05, 0.025)
+
+	plt.show();
+	
+	
+	

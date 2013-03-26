@@ -101,7 +101,6 @@ def add_bf_man(experiment):
 	For valid units, the CF and threshold are saved in a text file called cfs.txt
 	'''
 
-
 	rf_blocks = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '*RF*.h5'))
 	cfs = []
 	badunits = []
@@ -142,7 +141,6 @@ def add_bf_man(experiment):
 
 		# print badunits
 
-	f.close()
 	plt.close(fig)
 
 def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, makechanges = False, verbose = False):
@@ -172,12 +170,12 @@ def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, make
 		if onlygood:
 			badunits = []
 		else:
-			badunits = np.sort(glob.glob(os.path.join(basedir, 'Sessions', 'full_window', 'good', experiment, 'fileconversion', '_RF*.h5')))
+			badunits = np.sort(glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '_RF*.h5')))
 
-		goodunits = np.sort(glob.glob(os.path.join(basedir, 'Sessions', 'full_window', 'good', experiment, 'fileconversion', 'RF*.h5')))
+		goodunits = np.sort(glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', 'RF*.h5')))
 		units = np.concatenate((goodunits, badunits))
 	
-		cfs = np.loadtxt(os.path.join(basedir, 'Sessions', 'full_window', 'good', experiment, 'cfs.txt'), ndmin = 1)
+		cfs = np.loadtxt(os.path.join(basedir, 'Sessions', experiment, 'cfs.txt'), ndmin = 1)
 
 		ax = fig.add_subplot(subcol, subcol, i+1)
 
@@ -190,11 +188,8 @@ def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, make
 
 		for unit in units:
 			f = h5py.File(unit, 'r')
-			try:
-				x = f['coord'].value[0]
-				y = f['coord'].value[1]
-			except:
-				wef
+			x = f['coord'].value[0]
+			y = -f['coord'].value[1]
 			f.close()
 		
 			unitnum = os.path.splitext(os.path.split(unit)[1])[0]
@@ -329,24 +324,28 @@ def make_trial_mask(stimparams, param):
 # 			unitnums = np.concatenate((x, unitnums))
 # 		np.savetxt(os.path.join(basedir, experiment, prefix + '.txt'), unitnums)
 		
-def remove_no_cf_units(experiment):
+def remove_no_cf_units(experiments):
+	
+	if type(experiments) is not list:
+		experiments = [experiments]
 
-	print experiment
+	for experiment in experiments:
+		print experiment
 
-	cfs = np.loadtxt(os.path.join(basedir, 'Sessions', experiment, 'cfs.txt'))
-	fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', 'RF*.h5'))
-	p = re.compile('(\d+)\.h5')
+		cfs = np.loadtxt(os.path.join(basedir, 'Sessions', experiment, 'cfs.txt'))
+		fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', 'RF*.h5'))
+		p = re.compile('(\d+)\.h5')
 
-	for fpath in fpaths:
-		absol, rel = os.path.split(fpath)
+		for fpath in fpaths:
+			absol, rel = os.path.split(fpath)
 
-		unitnum = np.int32(p.findall(rel))[0]
-		cf = cfs[cfs[:, 0] == unitnum, 1]
-		associated_fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '*%3.3u.h5' % unitnum))
-		if (cf.size) == 0 or np.isnan(cf):
-			for apath in associated_fpaths:
-				_, rel = os.path.split(apath)
-				os.rename(apath, os.path.join(absol, '_'+rel))
+			unitnum = np.int32(p.findall(rel))[0]
+			cf = cfs[cfs[:, 0] == unitnum, 1]
+			associated_fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '[A-Za-z]*%3.3u.h5' % unitnum)) # not already underscore leading file names
+			if (cf.size) == 0 or np.isnan(cf):
+				for apath in associated_fpaths:
+					_, rel = os.path.split(apath)
+					os.rename(apath, os.path.join(absol, '_'+rel))
 
 
 def remove_units(experiments, kind = 'nonA1'):
@@ -366,12 +365,11 @@ def remove_units(experiments, kind = 'nonA1'):
 			nona1 = np.loadtxt(nona1_path, ndmin = 1)
 			absol = os.path.join(basedir, 'Sessions', experiment, 'fileconversion')
 			for nona1_ in nona1:
-				files = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '*%3.3i*' % nona1_))
+				files = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '[A-Za-z]*%3.3u.h5' % nona1_))
 				# rename all h5 files in the fileconversion folder with this unit number
 				for f in files:
 					absol, rel = os.path.split(f)
-					if not rel.startswith('_'): # except those already starting with _
-						os.rename(f, os.path.join(absol, '_'+rel))
+					os.rename(f, os.path.join(absol, '_'+rel))
 				
 				# delete all analysis files in the analysis folder with this unit number
 				files = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'analysis', '*%3.3i*' % nona1_))
@@ -399,82 +397,6 @@ def remove_units(experiments, kind = 'nonA1'):
 		else:
 			print 'No sites to remove!'		
 
-def remove_from_DB(experiment, remove = 'nonfollowing'):
-	
-	print experiment
-
-	if type(remove) is str:
-		rempath = os.path.join(basedir, 'Sessions', experiment, remove + '.txt')
-		remove = np.loadtxt(rempath, ndmin = 1)
-
-	DB = np.load(os.path.join(basedir, 'Sessions', experiment, experiment + '_DB.npz'))['DB']
-	
-	for rem in remove:
-		DB = DB[DB['unit']!=rem]
-		try: # try to remove contact sheets too
-			os.remove(os.path.join(basedir, 'Sessions', experiment, 'analysis', 'RR%3.3i.png' % rem))
-		except:
-			pass
-			
-	np.savez(os.path.join(basedir, 'Sessions', experiment, experiment + '_DB.npz'), DB = DB)
-
-def threshold_rf(rf, thresh_mag = 0.25):
-	
-	rf_thresh = rf.copy()
-	rf_thresh[rf < (thresh_mag * rf.max())] = 0
-	
-	return rf_thresh
-
-def rf_contact_sheet(experiments):
-	
-	if type(experiments) == str:
-		experiments = [experiments]
-
-	fig = plt.figure(figsize = (16, 12))
-	for experiment in experiments:
-		cf_path = os.path.join(basedir, 'Sessions', experiment, 'cfs.txt')
-		if os.path.exists(cf_path):
-			cfs = np.loadtxt(cf_path)
-		else:
-			cfs = None
-
-		units = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', 'RF*.h5'))
-		units = np.sort(units)
-		nunits = len(units)
-		ncols = np.ceil(np.sqrt(nunits))
-
-		fig.suptitle(experiment)
-		for i, unit in enumerate(units):
-			absol, rel = os.path.split(unit)
-			unitname = re.findall('(\d+).h5', rel)[0]
-			f = h5py.File(unit, 'r')
-			rf = f['rf'].value
-			f.close()
-			if i == 0:
-				rf_shape = rf.shape
-				textx = rf_shape[1]/2.
-				texty = rf_shape[0] - 1
-
-			# thresholded rf
-			rf_thresh = threshold_rf(rf, 0.25)
-			rf_clust, _ = findmaxcluster(rf_thresh, include_diagonal = False)
-			
-			RF = np.hstack([rf, np.ones((rf.shape[0], 1))*rf.max(), rf_clust])
-
-			ax = fig.add_subplot(ncols, ncols, i+1)
-			ax.imshow(RF, interpolation = 'nearest', aspect = 'auto', cmap = 'hot')
-			if not cfs is None:
-				cf = cfs[cfs[:, 0]==np.int32(unitname), 1]
-				ax.axvline(cf, color = 'w', lw = 3)
-			ax.text(textx, texty, unitname, color = 'k', bbox = dict(facecolor = 'white', alpha = 0.8))
-			if i < (nunits-1):
-				ax.set_xticks([]);
-			if i > 0:
-				ax.set_yticks([]);
-
-	
-		fig.savefig(os.path.join(basedir, 'rf_' + experiment + '.png'))
-		fig.clf()
 
 def findmaxcluster(B, cf = None, include_diagonal = False):
 	'''
