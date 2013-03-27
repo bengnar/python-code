@@ -232,7 +232,7 @@ def load_coords(session, v = True):
 		if v:
 			print 'Found coordinates at %s' % os.path.join(studydir, 'Sessions', session, 'experimentfiles', session + '.txt')
 	except:
-		coords = np.nan
+		coords = np.array((np.nan, np.nan))
 		if v:
 			print 'Coordinates not found'
 			
@@ -256,7 +256,7 @@ def add_coords(u_, coords, unitnum):
 	try:
 		coord = coords[coords[:, 0] == unitnum, 1:3][0]
 	except:
-		coord = np.nan
+		coord = np.array((np.nan, np.nan))
 	u_.create_dataset('coord', data = coord)
 
 	
