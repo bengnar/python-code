@@ -968,16 +968,50 @@ for experiment in experiments:
 	coh_info = coherence.calc_coherence_all(experiment)
 	np.savez(os.path.join(basedir, 'Analysis', '%s_coh_info2.npz' % experiment), coh_info)
 		
-	
+
+sessions = glob.glob(os.path.join(studydir, 'Sessions', 'voc_*'))
+for session in sessions:
+	print session
+	fpaths = glob.glob(os.path.join(studydir, 'Sessions', session, 'fileconversion', '*.h5'))
+	for fpath in fpaths:
+		f = h5py.File(fpath, 'r')
+		absol, relat = os.path.split(fpath)
+		if len(f['coord'].shape)==0:
+			print fpath
+			newfpath = os.path.join(absol, 'new_%s' % relat)
+			newf = h5py.File(newfpath)
+
+			for key in f.iterkeys():
+				if not key=='coord':
+					f.copy(key, newf)
+				else:
+					newf.create_dataset('coord', data = np.array((np.nan, np.nan)))
+
+			newf.close()
+			f.close()
+			shutil.move(fpath, os.path.join(absol, 'bk_%s' % relat))
+			shutil.move(newfpath, os.path.join(absol, relat))				
+
+		else:
+			f.close()
+
+
 
 	
+
+		
+voc_ko_exp_20130128
+voc_ko_exp_20130130
+voc_ko_exp_20130201
+'voc_ko_nai_20130116'
+'voc_ko_nai_20130117'
+'voc_ko_nai_20130118'
+voc_ko_nai_20130122''
+
 		
 		
 		
-		
-		
-		
-		
+
 		
 		
 		
