@@ -19,6 +19,10 @@ import os, shutil, glob, h5py, re
 import Spikes; reload(Spikes)
 import RF; reload(RF)
 
+# for segmenting the file names into stimulus type and unit number
+p_int = re.compile('(\d+).h5')
+p_str = re.compile('([A-Za-z]+)\d+.h5')
+
 # a dictionary mapping the .mat prefix onto the .h5 prefix. for example, b##.mat files are made into RF###.h5 files
 prefix = {'b' : 'RF', 'r' : 'RR', 'q' : 'QU', 'v' : 'VOC', 'i' : 'IS', 'P' : 'RF'}
 
@@ -34,9 +38,9 @@ RF = dict(nbins=333), \
 RR = dict(nbins=6000), \
 VOC = dict(nbins=20000))
 
-# studydir = '/Users/robert/Desktop/tetrode_test'
+studydir = '/Users/robert/Desktop/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
-studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
+# studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/for_shaowen/'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_KO_ising/Sessions/good/'
 
@@ -250,24 +254,33 @@ def load_cfs(session, v = True):
 			print 'CFs not found'
 	
 	return cfs
-	
-def add_coords(u_, coords, unitnum):
-	
+
+def get_coord(coords, unitnum):
+
 	try:
 		coord = coords[coords[:, 0] == unitnum, 1:3][0]
 	except:
 		coord = np.array((np.nan, np.nan))
-	u_.create_dataset('coord', data = coord)
 
+	return coord
+
+def add_coords(u_, coords, unitnum):
 	
-def add_cfs(u_, cfs, unitnum):
+	u_.create_dataset('coord', data = get_coord(coords, unitnum))
 	
+def get_cf(cfs, unitnum):
+
 	try:
 		ix = cfs[:, 0] == unitnum
 		cf = cfs[ix, 1][0]
 	except:
 		cf = np.nan
-	u_.create_dataset('cf', data = cf)
+
+	return cf
+
+def add_cfs(u_, cfs, unitnum):
+	
+	u_.create_dataset('cf', data = get_cf(cfs, unitnum))
 
 def remove_trials(spktimes, spktrials, spkwaveform, lfp, stimID, remID):
 	
@@ -311,7 +324,86 @@ def unpack(f, params = ['rast', 'stimID']):
 		val.append(f[param].value)
 	return val
 
+def update_coords(sessions):
+	'''
+	Updates coordinate field of all of the h5py files in the given sessions.
+	Input:
+		sessions : a list of session names (or a string of a single session name) to be processed
+	'''
+	if type(sessions) is str: sessions = [sessions]
+
+	for session in sessions:
+		print session
+		coords = np.loadtxt(os.path.join(studydir, 'Sessions', session, 'experimentfiles', '%s.txt' % session))
+
+		fpaths = glob.glob(os.path.join(studydir, 'Sessions', session, 'fileconversion', '*.h5'))
+		for fpath in fpaths:
+			tmp = unpack_fpath(fpath)
+			f = h5py.File(fpath)
+			f['coord'].write_direct(get_coord(coords, tmp['unitnum']))
+			f.close()
+
+def update_cfs(sessions):
+	'''
+	Updates the CF field for all of the h5py files in the given sessions.
+	Input:
+		sessions : a list of sesion names (or a string of a single session name) to be processed
+	'''
+	if type(sessions) is str: sessions = [sessions]
+
+	for session in sessions:
+		print session
+		cfs = np.loadtxt(os.path.join(studydir, 'Sessions', session, 'cfs.txt'))
+
+		fpaths = glob.glob(os.path.join(studydir, 'Sessions', session, 'fileconversion', '*.h5'))
+		for fpath in fpaths:
+			tmp = unpack_fpath(fpath)
+			f = h5py.File(fpath, 'r+')
+			f['cf'].write_direct(np.array(get_cf(cfs, tmp['unitnum'])))
+			f.close()
+
+def unpack_fpath(fpath):
 	
+	absol, relat = os.path.split(fpath)
+	fname, ext = os.path.splitext(relat)
+	
+	stimtype = p_str.findall(relat)[0]
+	unitnum = int(p_int.findall(relat)[0])
+	
+	blockpath_info = dict(fpath = fpath, absol = absol, relat = relat, fname = fname, stimtype = stimtype, unitnum = unitnum, ext = ext)
+
+	return blockpath_info
+
+def get_session_unitinfo(session, onlycomplete = None):
+	'''
+	Returns a useful dict that combines all of the filepaths for multiple blocks recorded at one penetration location.
+	Inputs:
+		session : the session for which you want info
+		onlycomplete (optional) : list of stimulus prefixes. the function will only return sites that saw all of the stimuli in the list
+	Output:	
+		dict(u## (the unit number) : dict(fpath : [list of filepaths], stimtype : [list of stimulus types corresponding to the filepath at the same location]))
+	'''
+	
+	fpaths = glob.glob(os.path.join(studydir, 'Sessions', session, 'fileconversion', '[A-Za-z]*.h5'))
+	unitinfo = dict()
+	for fpath in fpaths:
+		tmp = unpack_fpath(fpath)
+		unitinfokey = 'u%2.2u' % tmp['unitnum']
+		if not unitinfokey in unitinfo.keys():
+			unitinfo[unitinfokey] = dict(fpath = [], stimtype = [])
+		b = unitinfo[unitinfokey]
+		for fieldkey in b.iterkeys():
+			b[fieldkey].append(tmp[fieldkey])
+
+	# pop the incomplete sites
+	if not onlycomplete is None:
+		for key in unitinfo.keys():
+			if not np.array([i in unitinfo[key]['stimtype'] for i in onlycomplete]).all():
+				unitinfo.pop(key)
+
+	return unitinfo
+
+
 # def fix_redos(experiment, test = True):
 # 	
 # 	fpath = glob.glob(os.path.join(studydir, 'Sessions', experiment, 'data', '*.mat'))
