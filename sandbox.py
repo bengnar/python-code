@@ -1000,14 +1000,20 @@ for session in sessions:
 	
 
 		
-voc_ko_exp_20130128
-voc_ko_exp_20130130
-voc_ko_exp_20130201
-'voc_ko_nai_20130116'
-'voc_ko_nai_20130117'
-'voc_ko_nai_20130118'
-voc_ko_nai_20130122''
+sessions = ['voc_ko_exp_20130128', 'voc_ko_exp_20130130', 'voc_ko_exp_20130201', 'voc_ko_nai_20130116', 'voc_ko_nai_20130117', 
+'voc_ko_nai_20130118', 'voc_ko_nai_20130122']
 
+sessions = ['voc_wt_nai_20130305','voc_wt_nai_20130307',
+'voc_wt_nai_20130308','voc_wt_nai_20130315',
+'voc_wt_nai_20130321','voc_wt_nai_20130325']
+
+
+for session in sessions:
+	print session
+	x = np.loadtxt(os.path.join(studydir, 'Sessions', session, 'experimentfiles', '%s.txt' % session))
+	print x
+	x[:, 2] = 480 - x[:, 2]
+	np.savetxt(os.path.join(studydir, 'Sessions', session, 'experimentfiles', 'new_%s.txt' % session), x)
 		
 		
 		
