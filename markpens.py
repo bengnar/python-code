@@ -8,11 +8,14 @@ from scipy.ndimage import imread
 import wx
 
 
-nr=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6.250000e-02,1.250000e-01,1.875000e-01,2.500000e-01,3.125000e-01,3.750000e-01,4.375000e-01,5.000000e-01,5.625000e-01,6.250000e-01,6.875000e-01,7.500000e-01,8.125000e-01,8.750000e-01,9.375000e-01,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9.375000e-01,8.750000e-01,8.125000e-01,7.500000e-01,6.875000e-01,6.250000e-01,5.625000e-01,5.000000e-01,0.2]
-ng=[0,0,0,0,0,0,0,0,6.250000e-02,1.250000e-01,1.875000e-01,2.500000e-01,3.125000e-01,3.750000e-01,4.375000e-01,5.000000e-01,5.625000e-01,6.250000e-01,6.875000e-01,7.500000e-01,8.125000e-01,8.750000e-01,9.375000e-01,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9.375000e-01,8.750000e-01,8.125000e-01,7.500000e-01,6.875000e-01,6.250000e-01,5.625000e-01,5.000000e-01,4.375000e-01,3.750000e-01,3.125000e-01,2.500000e-01,1.875000e-01,1.250000e-01,6.250000e-02,0,0,0,0,0,0,0,0,0,0.2]
-nb=[5.625000e-01,6.250000e-01,6.875000e-01,7.500000e-01,8.125000e-01,8.750000e-01,9.375000e-01,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9.375000e-01,8.750000e-01,8.125000e-01,7.500000e-01,6.875000e-01,6.250000e-01,5.625000e-01,5.000000e-01,4.375000e-01,3.750000e-01,3.125000e-01,2.500000e-01,1.875000e-01,1.250000e-01,6.250000e-02,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.2]
-
-ix2freq = np.int32(np.linspace(2, 64, len(nr)))
+cmap = plt.get_cmap('jet')
+def cf_to_rgba(i, N = 40):
+	if i>N:
+		return cmap(1.)
+	elif i<0:
+		return cmap(0.)
+	else:
+		return cmap(1.*i/N)
 
 class Penetrations():
 	
@@ -33,7 +36,7 @@ class Penetrations():
 		
 
 		img = imread(impath) # load scopephoto
-		ax.imshow(img) # show scopephoto
+		ax.imshow(img[::-1, :, :], origin = 'bottom') # show scopephoto
 		
 		# Set output directory for this experiment as the relative path of the scopephoto
 		outputpath = os.path.split(impath)[0]
@@ -111,9 +114,12 @@ class Penetrations():
 			try:
 				freq = np.int32(dialog.GetValue())
 			except ValueError: return
-			clr_ix = np.abs(ix2freq-freq).argmin()
-			clr = [nr[clr_ix], ng[clr_ix], nb[clr_ix]]
-			self.cfs[self.textselected] = np.int32(dialog.GetValue())
+			
+			if freq==0:
+				clr = (0, 0, 0)
+			else:
+				clr = cf_to_rgba(freq)
+			self.cfs[self.textselected] = np.int32(freq)
 			
 		dialog.Destroy()
 		
@@ -158,9 +164,7 @@ class Penetrations():
 		y = ylim[1] + (colwidth * (np.floor(self.npens/20.)+1))
 		self.pens.append(self.ax.text(x, y, np.str(self.npens)))
 		self.cfs.append(0)
-		
-		# add text box to margin
-		
+				
 		plt.draw()
 		return
 
@@ -206,9 +210,32 @@ class Penetrations():
 
 		except IOError:
 			print '%s does not exist!' % outputpath
+			
+	def load(self, event):
+		dialog = wx.FileDialog(None, 'Coordinates/CFs:', style = wx.OK|wx.CANCEL)
+		if dialog.ShowModal() == wx.ID_OK:
+			loadpath = dialog.GetPath()
+		dialog.Destroy()
+		tmp = np.loadtxt(loadpath)
+		
+		self.npens = tmp.shape[0]
+		self.pens = []
+		self.cfs = list(tmp[:, 3].astype(int))
+		for (u, x, y, cf) in tmp:
+			# add number to the ScopePhoto
+			if cf==0:
+				clr = (0, 0, 0)
+			else:
+				clr = cf_to_rgba(cf)
+			self.pens.append(self.ax.text(x, y, str(int(u)), color = clr))
+				
+		plt.draw()
+			
+			
 
 if __name__ == '__main__':
 	
+	# make figure
 	fig = plt.figure(figsize = [7.175, 5.4])
 	fig.subplots_adjust(bottom = 0)
 	fig.subplots_adjust(left = 0)
@@ -217,17 +244,23 @@ if __name__ == '__main__':
 	ax.set_xticks([])
 	ax.set_yticks([])
 
+	# make buttons
 	ax_plus = fig.add_axes([0.09, 0.02, 0.06, 0.04])
 	ax_minus = fig.add_axes([0.02, 0.02, 0.06, 0.04])
-	ax_save = fig.add_axes([0.9, 0.02, 0.06, 0.04])
+	ax_save = fig.add_axes([0.85, 0.02, 0.06, 0.04])
+	ax_load = fig.add_axes([0.92, 0.02, 0.06, 0.04])
 
+	# make program object
 	pens = Penetrations(ax)
 
+	# link buttons to callbacks
 	b_plus = Button(ax = ax_plus, label = '+')
 	b_plus.on_clicked(pens.add_pen)
 	b_minus = Button(ax = ax_minus, label = '-')
 	b_minus.on_clicked(pens.rem_pen)
 	b_save = Button(ax = ax_save, label = 'Save')
 	b_save.on_clicked(pens.save)
+	b_load = Button(ax = ax_load, label = 'Load')
+	b_load.on_clicked(pens.load)
 
 	plt.show()
