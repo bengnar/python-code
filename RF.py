@@ -6,20 +6,30 @@ from scipy.stats import linregress
 import Spikes, RF, RR
 import misc
 
-# basedir = '/Volumes/BOB_SAGET/Fmr1_RR'
-basedir = '/Volumes/BOB_SAGET/Fmr1_voc/'
+# studydir = '/Volumes/BOB_SAGET/Fmr1_RR'
+studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 
 ix2freq = 1000 * 2**(np.arange(0, 64)/10.)
+
+cmap = plt.get_cmap('jet')
+def cf_to_rgba(i, N = 40):
+	if i>N:
+		return cmap(1.)
+	elif i<0:
+		return cmap(0.)
+	else:
+		return cmap(1.*i/N)
+	
 
 def get_ix2freq():
 	return ix2freq
 
-def load_cf(experiment, basedir = basedir, v = True):
+def load_cf(experiment, studydir = studydir, v = True):
 	
 	try:
-		cfs = np.loadtxt(os.path.join(basedir, 'Sessions', experiment, 'cfs.txt'), 'float32', ndmin = 1)
+		cfs = np.loadtxt(os.path.join(studydir, 'Sessions', experiment, 'cfs.txt'), 'float32', ndmin = 1)
 		if v:
-			print 'Found CFs at %s' % os.path.join(basedir, 'Sessions', experiment, 'cfs.txt')
+			print 'Found CFs at %s' % os.path.join(studydir, 'Sessions', experiment, 'cfs.txt')
 	except:
 		cfs = np.nan
 		if v:
@@ -101,7 +111,7 @@ def add_bf_man(experiment):
 	For valid units, the CF and threshold are saved in a text file called cfs.txt
 	'''
 
-	rf_blocks = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '*RF*.h5'))
+	rf_blocks = glob.glob(os.path.join(studydir, 'Sessions', experiment, 'fileconversion', '*RF*.h5'))
 	cfs = []
 	badunits = []
 	for rf_block in rf_blocks:
@@ -136,7 +146,7 @@ def add_bf_man(experiment):
 		plt.close(fig)
 
 
-		savepath = os.path.join(basedir, 'Sessions', experiment, 'cfs.txt')
+		savepath = os.path.join(studydir, 'Sessions', experiment, 'cfs.txt')
 		np.savetxt(savepath, cfs)
 
 		# print badunits
@@ -150,37 +160,29 @@ def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, make
 	
 	if type(experiments) is str:
 		experiments = [experiments]
-		
-	nr=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6.250000e-02,1.250000e-01,1.875000e-01,2.500000e-01,3.125000e-01,3.750000e-01,4.375000e-01,5.000000e-01,5.625000e-01,6.250000e-01,6.875000e-01,7.500000e-01,8.125000e-01,8.750000e-01,9.375000e-01,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9.375000e-01,8.750000e-01,8.125000e-01,7.500000e-01,6.875000e-01,6.250000e-01,5.625000e-01,5.000000e-01,0.2]
-	ng=[0,0,0,0,0,0,0,0,6.250000e-02,1.250000e-01,1.875000e-01,2.500000e-01,3.125000e-01,3.750000e-01,4.375000e-01,5.000000e-01,5.625000e-01,6.250000e-01,6.875000e-01,7.500000e-01,8.125000e-01,8.750000e-01,9.375000e-01,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9.375000e-01,8.750000e-01,8.125000e-01,7.500000e-01,6.875000e-01,6.250000e-01,5.625000e-01,5.000000e-01,4.375000e-01,3.750000e-01,3.125000e-01,2.500000e-01,1.875000e-01,1.250000e-01,6.250000e-02,0,0,0,0,0,0,0,0,0,0.2]
-	nb=[5.625000e-01,6.250000e-01,6.875000e-01,7.500000e-01,8.125000e-01,8.750000e-01,9.375000e-01,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9.375000e-01,8.750000e-01,8.125000e-01,7.500000e-01,6.875000e-01,6.250000e-01,5.625000e-01,5.000000e-01,4.375000e-01,3.750000e-01,3.125000e-01,2.500000e-01,1.875000e-01,1.250000e-01,6.250000e-02,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.2]
 
-	# imgpath = os.path.join(basedir, experiment, 'experimentfiles', 'ScopePhoto1.png')
+	# imgpath = os.path.join(studydir, experiment, 'experimentfiles', 'ScopePhoto1.png')
 	# img = ndimage.read(imgpath)
 
 	nexperiments = len(experiments)
-	subcol = np.ceil(np.sqrt(nexperiments))
-	if ax is None:
-		fig = plt.figure()
-	else:
-		fig = ax.get_figure();
-
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.set_axis_bgcolor('0.7')
 	for i, experiment in enumerate(experiments):
+
+		ax.set_title(experiment)
 		
 		if onlygood:
 			badunits = []
 		else:
-			badunits = np.sort(glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '_RF*.h5')))
+			badunits = np.sort(glob.glob(os.path.join(studydir, 'Sessions', experiment, 'fileconversion', '_RF*.h5')))
 
-		goodunits = np.sort(glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', 'RF*.h5')))
+		goodunits = np.sort(glob.glob(os.path.join(studydir, 'Sessions', experiment, 'fileconversion', 'RF*.h5')))
 		units = np.concatenate((goodunits, badunits))
 	
-		cfs = np.loadtxt(os.path.join(basedir, 'Sessions', experiment, 'cfs.txt'), ndmin = 1)
+		cfs = np.loadtxt(os.path.join(studydir, 'Sessions', experiment, 'cfs.txt'), ndmin = 1)
 
-		ax = fig.add_subplot(subcol, subcol, i+1)
-
-		ax.set_axis_bgcolor('0.7')
-		ax.set_title(experiment)
+		
 		maxx = -np.inf
 		maxy = -np.inf
 		minx = +np.inf
@@ -188,26 +190,27 @@ def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, make
 
 		for unit in units:
 			f = h5py.File(unit, 'r')
-			x = f['coord'].value[0]
-			y = -f['coord'].value[1]
+			if not np.isnan(f['coord'][0]):
+				x = f['coord'][0]
+				y = f['coord'][1]
+			else:
+				x = y = 200
 			f.close()
 		
 			unitnum = os.path.splitext(os.path.split(unit)[1])[0]
 			p = re.compile('\d+')
 			unitnum = np.int32(p.findall(unitnum))
 
-			ix = cfs[:, 0] == unitnum
+			ix = cfs[:, 0] == unitnum # what is this unit's cf
 			if ix.sum() == 0:
 				clr = '0.5'
 			elif unit in badunits:
 				clr = '0.5'
-				# cir = pylab.Circle((x+0.02, y+0.03), radius = 0.06, alpha = 0.4, color = '0.3')
-				# ax_.add_patch(cir)
 			else:
 				cf = cfs[ix, 1]
-				cf = np.int32(cf*1.5)
-				clr = (nr[cf], ng[cf], nb[cf])
-
+				clr = cf_to_rgba(cf)[0]
+				print clr
+				
 			unitnum = os.path.splitext(os.path.split(unit)[1])[0]
 			p = re.compile('\d+')
 			unitnum = p.findall(unitnum)[0]
@@ -220,37 +223,36 @@ def look_at_map(experiments, onlygood = False, prefix = 'nonA1', ax = None, make
 
 		ax.set_xlim([minx-0.5, maxx+0.5])
 		ax.set_ylim([miny-0.5, maxy+0.5])
-		ax.set_xticklabels('')
-		ax.set_yticklabels('')
-
-	# fig.tight_layout()
-	
-	plt.show()
-
-	if verbose:
-		print 'Bad units\n...'
-		for badunit in badunits:
-			print os.path.splitext(os.path.split(badunit)[1])[0]
-
-		print 'Good units\n...'
-		for goodunit in goodunits:
-			print os.path.splitext(os.path.split(goodunit)[1])[0]
-
-	if makechanges:
-		unitnums = raw_input('Enter units you would like to change-->')
-
-		if len(unitnums) > 0:
+		# ax.set_xticklabels('')
+		# ax.set_yticklabels('')
+		fig.savefig(os.path.join(studydir, 'Maps', '%s_map.png' % experiment))
+		ax.cla()
 		
-			unitnums = np.int32(unitnums.split(' '))
-			nonA1path = os.path.join(basedir, 'Sessions', experiment, prefix + '.txt')
-			nonA1 = np.empty(0)
-			if os.path.exists(nonA1path):
-				nonA1 = np.loadtxt(nonA1path)
-			nonA1 = np.concatenate((nonA1, unitnums))
-			np.savetxt(nonA1path, nonA1)
-		
-		else:
-			print 'No changes made.'
+	# 
+	# if verbose:
+	# 	print 'Bad units\n...'
+	# 	for badunit in badunits:
+	# 		print os.path.splitext(os.path.split(badunit)[1])[0]
+	# 
+	# 	print 'Good units\n...'
+	# 	for goodunit in goodunits:
+	# 		print os.path.splitext(os.path.split(goodunit)[1])[0]
+	# 
+	# if makechanges:
+	# 	unitnums = raw_input('Enter units you would like to change-->')
+	# 
+	# 	if len(unitnums) > 0:
+	# 	
+	# 		unitnums = np.int32(unitnums.split(' '))
+	# 		nonA1path = os.path.join(studydir, 'Sessions', experiment, prefix + '.txt')
+	# 		nonA1 = np.empty(0)
+	# 		if os.path.exists(nonA1path):
+	# 			nonA1 = np.loadtxt(nonA1path)
+	# 		nonA1 = np.concatenate((nonA1, unitnums))
+	# 		np.savetxt(nonA1path, nonA1)
+	# 	
+	# 	else:
+	# 		print 'No changes made.'
 	
 	return fig, ax
 
@@ -302,27 +304,6 @@ def make_trial_mask(stimparams, param):
 		
 	return trial_mask
 		
-# def remove_bad_units(unitnums, experiment, basedir = '/Volumes/BOB_SAGET/Fmr1_RR', prefix = None):
-# 
-# 	if type(unitnums) == str:
-# 		unitnums = np.int32(unitnums.split(' '))
-# 
-# 	unitnums = np.unique(unitnums)
-# 
-# 	for unitnum in unitnums:
-# 		unitnumstr = '%3.3i' % unitnum
-# 		units = glob.glob(os.path.join(basedir, experiment, 'fileconversion', '*' + unitnumstr + '*.h5'))
-# 		for unit in units:
-# 			base, rel = os.path.split(unit)
-# 			if not rel.startswith('_'):
-# 				os.rename(unit, os.path.join(base, '_' + rel))
-# 
-# 	if prefix is not None:
-# 		savepath = os.path.join(basedir, experiment, prefix + '.txt')
-# 		if os.path.exists(savepath):
-# 			x = np.loadtxt(os.path.join(basedir, experiment, prefix + '.txt'))
-# 			unitnums = np.concatenate((x, unitnums))
-# 		np.savetxt(os.path.join(basedir, experiment, prefix + '.txt'), unitnums)
 		
 def remove_no_cf_units(experiments):
 	
@@ -332,8 +313,8 @@ def remove_no_cf_units(experiments):
 	for experiment in experiments:
 		print experiment
 
-		cfs = np.loadtxt(os.path.join(basedir, 'Sessions', experiment, 'cfs.txt'))
-		fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', 'RF*.h5'))
+		cfs = np.loadtxt(os.path.join(studydir, 'Sessions', experiment, 'cfs.txt'))
+		fpaths = glob.glob(os.path.join(studydir, 'Sessions', experiment, 'fileconversion', 'RF*.h5'))
 		p = re.compile('(\d+)\.h5')
 
 		for fpath in fpaths:
@@ -341,61 +322,102 @@ def remove_no_cf_units(experiments):
 
 			unitnum = np.int32(p.findall(rel))[0]
 			cf = cfs[cfs[:, 0] == unitnum, 1]
-			associated_fpaths = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '[A-Za-z]*%3.3u.h5' % unitnum)) # not already underscore leading file names
+			associated_fpaths = glob.glob(os.path.join(studydir, 'Sessions', experiment, 'fileconversion', '[A-Za-z]*%3.3u.h5' % unitnum)) # not already underscore leading file names
 			if (cf.size) == 0 or np.isnan(cf):
 				for apath in associated_fpaths:
 					_, rel = os.path.split(apath)
 					os.rename(apath, os.path.join(absol, '_'+rel))
 
 
-def remove_units(experiments, kind = 'nonA1'):
+def remove_units(sessions, kind = 'nonA1'):
 	'''
 	Will find the nonA1.txt file and rename all of those RF (and related files)
 	to start with an underscore '_'
 	'''		
 	
-	if type(experiments) is str:
-		experiments = [experiments]
+	if type(sessions) is str:
+		sessions = [sessions]
 
-	for experiment in experiments:
-		print experiment
+	for session in sessions:
+		print session
 
-		nona1_path = os.path.join(basedir, 'Sessions', experiment, kind + '.txt')
+		nona1_path = os.path.join(studydir, 'Sessions', session, kind + '.txt')
 		if os.path.exists(nona1_path):
 			nona1 = np.loadtxt(nona1_path, ndmin = 1)
-			absol = os.path.join(basedir, 'Sessions', experiment, 'fileconversion')
+			absol = os.path.join(studydir, 'Sessions', session, 'fileconversion')
 			for nona1_ in nona1:
-				files = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'fileconversion', '[A-Za-z]*%3.3u.h5' % nona1_))
+				files = glob.glob(os.path.join(studydir, 'Sessions', session, 'fileconversion', '[A-Za-z]*%3.3u.h5' % nona1_))
 				# rename all h5 files in the fileconversion folder with this unit number
 				for f in files:
 					absol, rel = os.path.split(f)
 					os.rename(f, os.path.join(absol, '_'+rel))
 				
 				# delete all analysis files in the analysis folder with this unit number
-				files = glob.glob(os.path.join(basedir, 'Sessions', experiment, 'analysis', '*%3.3i*' % nona1_))
+				files = glob.glob(os.path.join(studydir, 'Sessions', session, 'analysis', '*%3.3i*' % nona1_))
 				for f in files:
 					os.remove(f)
 			
-			# files = glob.glob(os.path.join(basedir, experiment, 'fileconversion', 'RF*.h5'))
-			# for f in files:
-			# 	absol, rel = os.path.split(f)
-			# 	p = re.compile('(\d+)\.h5')
-			# 	unitnum = np.int32(p.findall(rel))[0]
-			# 	if unitnum in nona1:
-			# 		os.rename(f, os.path.join(absol, '_'+rel))
-			# 		rel_rr = re.sub('RF', 'RR', rel) # substitute RR for RF in the rel
-			# 		try:
-			# 			os.rename(os.path.join(absol, rel_rr), os.path.join(absol, '_' + rel_rr))
-			# 		except:
-			# 			pass
-			# 		png_rr = re.sub('.h5', '.png', rel_rr)
-			# 		try: # remove the contact sheet if it exists
-			# 			os.remove(os.path.join(basedir, experiment, 'analysis', png_rr))
-			# 		except:
-			# 			print 'Could not remove %s' % png_rr
 						
 		else:
 			print 'No sites to remove!'		
+
+def threshold_rf(rf, thresh_mag = 0.25):
+
+	rf_thresh = rf.copy()
+	rf_thresh[rf < (thresh_mag * rf.max())] = 0
+
+	return rf_thresh
+
+def rf_contact_sheet(experiments):
+
+	if type(experiments) == str:
+		experiments = [experiments]
+
+	fig = plt.figure(figsize = (16, 12))
+	for experiment in experiments:
+		cf_path = os.path.join(studydir, 'Sessions', experiment, 'cfs.txt')
+		if os.path.exists(cf_path):
+			cfs = np.loadtxt(cf_path)
+		else:
+			cfs = None
+
+		units = glob.glob(os.path.join(studydir, 'Sessions', experiment, 'fileconversion', 'RF*.h5'))
+		units = np.sort(units)
+		nunits = len(units)
+		ncols = np.ceil(np.sqrt(nunits))
+
+		fig.suptitle(experiment)
+		for i, unit in enumerate(units):
+			absol, rel = os.path.split(unit)
+			unitname = re.findall('(\d+).h5', rel)[0]
+			f = h5py.File(unit, 'r')
+			rf = f['rf'].value
+			f.close()
+			if i == 0:
+				rf_shape = rf.shape
+				textx = rf_shape[1]/2.
+				texty = rf_shape[0] - 1
+
+			# thresholded rf
+			rf_thresh = threshold_rf(rf, 0.25)
+			rf_clust, _ = findmaxcluster(rf_thresh, include_diagonal = False)
+
+			RF = np.hstack([rf, np.ones((rf.shape[0], 1))*rf.max(), rf_clust])
+
+			ax = fig.add_subplot(ncols, ncols, i+1)
+			ax.imshow(RF, interpolation = 'nearest', aspect = 'auto', cmap = 'hot')
+			if not cfs is None:
+				cf = cfs[cfs[:, 0]==np.int32(unitname), 1]
+				ax.axvline(cf, color = 'w', lw = 3)
+			ax.text(textx, texty, unitname, color = 'k', bbox = dict(facecolor = 'white', alpha = 0.8))
+			if i < (nunits-1):
+				ax.set_xticks([]);
+			if i > 0:
+				ax.set_yticks([]);
+
+
+		fig.savefig(os.path.join(studydir, 'Sheets', 'rf_' + experiment + '.png'))
+		fig.clf()
 
 
 def findmaxcluster(B, cf = None, include_diagonal = False):
@@ -650,6 +672,31 @@ def plot_latency_by_stim(rast, stimparams):
 	RF.plot_rf(rf, ax = ax1)
 	RF.plot_rf(x.T, ax = ax2, cmap = 'jet')
 	
+
+def add_coords_to_h5py(sessions):
+	if not type(sessions) is list:
+		sessions = [sessions]
+	
+	for session in sessions:
+		print session
+		p = re.compile('(\d+)\.h5')
+		coords = np.loadtxt(os.path.join(studydir, 'Sessions', session, 'experimentfiles', '%s.txt' % session), ndmin = 1)
+		fpaths = glob.glob(os.path.join(studydir, 'Sessions', session, 'fileconversion', '*.h5'))
+		for fpath in fpaths:
+			print fpath
+			absol, relat = os.path.split(fpath)
+			unitnum = int(p.findall(relat)[0])
+			coord = coords[coords[:, 0]==unitnum, 1:3]
+			if coord is np.nan: coord = np.array((np.nan, np.nan))
+			f = h5py.File(fpath, 'r+')
+			# if f['coord'].value is not np.array((np.nan, np.nan)):
+			try:
+				f['coord'].write_direct(coord)
+			except:
+				print 'Failed!'
+			f.close()
+			
+
 def calc_fake_strf(rast, stimparams):
 	'''
 	2-d matrix no.freqs x no.time bins, values are spontaneous firing rate. basically each row is a psth for a particular frequency
