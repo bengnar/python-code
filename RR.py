@@ -306,24 +306,6 @@ def aligned_psth(spktimes_, rr, npips, onset, visible = False):
 		apsth = np.nan
 	
 	return apsth
-
-def tone_times(rr, npips, onset):
-	return np.arange(npips, dtype = 'float32')/rr + onset
-	
-def plot_tone_pips(rr, npips, onset, duration, ax = None, **kwargs):
-	
-	if ax is None:
-		ax = plt.gca()
-	
-	ylim = ax.get_ylim()
-	yrange = ylim[1] - ylim[0]
-	rect_height = 0.1 * yrange
-	
-	piptimes = tone_times(rr, npips, onset)
-	for i in range(npips):
-		rect = mpl.patches.Rectangle((piptimes[i], 0), duration, rect_height, zorder = 10, **kwargs)
-		ax.add_patch(rect)
-		# ax.plot(np.array([piptimes[i], piptimes[i]+duration]), [0, 0], lw = 6, **kwargs)
 		
 def circ_stat(alpha):
 	'''
@@ -357,7 +339,40 @@ def rayleigh_test(alpha):
 	p = np.exp(np.sqrt(1+4*n+4*(n**2-R**2))-(1+2*n));
 
 	return p
+
+def plot_rrtf(t, psth, rr, npips, onset = 0.05, duration = 0.025, ax = None):
+
+	ax, fig = misc.axis_check(ax)
+
+	ax.plot(t, Spikes.exp_smoo(psth))
+	plot_tone_pips(rr, npips, onset = onset, duration = duration, ax = ax, color = 'r')
+
+
+def tone_times(rr, npips, onset):
+	'''
+	Calcualtes tone onset times given a repetition rate and number of pips
+	Input:
+		rr : the repetition rate
+		npips : the number of pips
+		onset : first pip onset time in seconds
+	'''
+	return np.arange(npips, dtype = 'float32')/rr + onset
 	
+def plot_tone_pips(rr, npips, onset, duration, ax = None, **kwargs):
+	
+	if ax is None:
+		ax = plt.gca()
+	
+	ylim = ax.get_ylim()
+	yrange = ylim[1] - ylim[0]
+	rect_height = 0.1 * yrange
+	
+	piptimes = tone_times(rr, npips, onset)
+	for i in range(npips):
+		rect = mpl.patches.Rectangle((piptimes[i], 0), duration, rect_height, zorder = 10, **kwargs)
+		ax.add_patch(rect)
+		# ax.plot(np.array([piptimes[i], piptimes[i]+duration]), [0, 0], lw = 6, **kwargs)
+
 def plot_stim_psth(stim_psth, stim_params):
 	
 	fig = plt.figure();
