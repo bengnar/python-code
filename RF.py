@@ -24,22 +24,13 @@ def cf_to_rgba(i, N = 40):
 def get_ix2freq():
 	return ix2freq
 
-def load_cf(experiment, studydir = studydir, v = True):
-	
-	try:
-		cfs = np.loadtxt(os.path.join(studydir, 'Sessions', experiment, 'cfs.txt'), 'float32', ndmin = 1)
-		if v:
-			print 'Found CFs at %s' % os.path.join(studydir, 'Sessions', experiment, 'cfs.txt')
-	except:
-		cfs = np.nan
-		if v:
-			print 'CFs not found'
-	
-	return cfs
-	
-def find_cf(cfs, penno):
-	
-	return cfs[cfs[:, 0]==penno, 1]
+def freq2ix(freq, start_ix = 20):
+
+	_, ix, err = misc.closest(ix2freq[start_ix:], freq, log = True)
+	if err>1:
+		raise 'Large error encountered. (%f)' % err
+
+	return ix
 
 def calc_rf(rast, stimparams, resp_on = 57, resp_off = 80, normed = False, smooth = False):
 	'''
