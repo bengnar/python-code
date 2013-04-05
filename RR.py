@@ -9,32 +9,49 @@ import misc; reload(misc)
 from itertools import combinations
 import matplotlib.mpl as mpl
 
-def calc_rrtf_all(rast, stimparams, freq, rrs, onset = 0.05, norm = True):
+def calc_rrtf_all(rast, stimparams, freq, urrs, npips = 6, onset = 0.05, norm = True):
 	'''
-	takes full block raster and stimparams
-	it finds the response to the first tone by filtering the rast to include
-	only responses to the given frequency
-	then it filters the rast to only the given freq/rr pair and passes that
-	to calc_rrtf, along with the first tone response (for normalization)
+	Takes the full block raster and stimparams, finds the response to the first tone by filtering the rast to include only responses to the given frequency (but for all repetition rates), then it filters the rast to only the given freq/rr pair and passes that	to calc_rrtf, along with the first tone response for all repetition rates
+
+	Input:
+		rast : full block raster
+		stimparams : full block stimulus parameters
+		freq : in Hz, the frequency played to this unit
+		urrs : sorted list (lo-hi) of repetition rates played
+		npips : list of the number of pips at each rate, or scalar if each rate had the same number of pips
+		onset : in seconds, the onset time for the first pip
+		norm : for the response to each pip, subtract the pre-pip response
+
+	Output:
+		rrtf : n-length vector, where n is the number of repetition rates
 	'''
-	nrrs = rrs.size
+	if type(npips) is int:
+		npips = [npips]*len(urrs)
+
+	nrrs = urrs.size
 	rrtf = np.empty(nrrs) * np.nan
+
+	# get raster subset for this frequency
 	ix = stimparams[:, 0] == freq
-	pip_start = np.int32((0.005 + onset) * 1000)
-	pip_end = pip_start + 20
-	nspks_1st = (rast[ix, pip_start:pip_end]).mean() # need to fix this (subtract 20 ms baseline just as you do for the 2nd - 6th pips)
-	# print nspks_1st
+
+	# response onset and offset (5 - 25 ms after stimulus onset)
+	resp_start = np.int32((0.005 + onset) * 1000)
+	resp_end = resp_start + 20
+	nspks_1st = (rast[ix, resp_start:resp_end]).mean() # spikes per millisecond
+
+	# normalize by pre-pip baseline (-20 - 0 ms before stimulus onset)
 	if norm:
-		pip_end_pre = pip_start - 5
+		pip_end_pre = resp_start - 5
 		pip_start_pre = pip_end_pre - 20
 		nspks_1st = nspks_1st - (rast[ix, pip_start_pre: pip_end_pre]).mean()
-	for i, rr in enumerate(rrs):
+
+	# loop through repetition rates, get raster subset, and calculate RRTF
+	for i, (rr, npip) in enumerate(zip(urrs, npips)):
 		rast_ = rast[RF.get_trials(stimparams, np.array([freq, rr])), :]
-		rrtf[i] = calc_rrtf(rast_, rr, nspks_1st, norm = norm)
+		rrtf[i] = calc_rrtf(rast_, rr, nspks_1st, npips = npip, norm = norm)
 	
 	return rrtf
 	
-
 def calc_rrtf(rast_, rr, nspks_1st, npips = 6., onset = 0.05, norm = True):
 	'''
 	rast_
@@ -63,7 +80,6 @@ def calc_rrtf(rast_, rr, nspks_1st, npips = 6., onset = 0.05, norm = True):
 			nspks[i-1] = nspks[i-1] - nspks_pre
 			
 	return nspks.mean() / nspks_1st
-
 
 def calc_rrtf_lfp_all(lfp, lfp_t, stimparams, freq, rrs, onset = 0.05):
 
@@ -94,7 +110,6 @@ def calc_rrtf_lfp(lfp_, lfp_t, rr, lfp_mag_1st, npips = 6., onset = 0.05):
 					
 	return lfp_mag.mean() / lfp_mag_1st
 	
-
 def calc_fft_following(psth_smoo, rr, npips, remfirst = True):
 
 	if remfirst:
@@ -216,13 +231,13 @@ def calc_vs_all(rast, stimparams, ufreqs, urrs, npips = 6, onset = 0.05):
 		
 	return vs, vs_p
 
-def calc_vs(rast_, rr, npips, onset = 0.05, analysistype = 'mean', rem_first = False):
+def calc_vs(rast_, rr, npips, onset = 0.05, analysistype = 'mean', remove_first = False):
 
 	ix_times = np.arange(rast_.shape[1]) / 1000.
 	spktimes_ = Spikes.rast2spktimes(rast_, ix_times)
 	spktimes_ = spktimes_ - onset
 	train_end = npips / rr # end at last pip
-	if rem_first:
+	if remove_first:
 		train_start = 1./rr
 	else:
 		train_start = 0.
@@ -256,57 +271,64 @@ def calc_vs_indiv(spktimes_, rr, npips, onset):
 		vs[i] = np.abs(alpha.mean())
 
 	return vs
-	
-def circ_psth(rast_, rr, npips, onset = 0.05, bins = 20, color = 'b', rem_first = False, ax = None):
-	
+
+def circ_psth_all(rast, stimparams, freq, npips, onset = 0.05, bins = 20, color = 'b', remove_first = False, axs = None):
 	'''
-	rast
-	rr
-	npips
-	onset (s)
-	
+	Input:
+	Output:
+		r :  the mean vector length for each repetition rate
+		V : the summed vector length for each repetition rate
+		theta : the mean vector angle for each repetition rate
 	'''
-	ax, fig = misc.axis_check(ax, polar = True)
+	urrs = np.unique(stimparams[:, 1])
+	nrrs = urrs.size
+	ix = RF.get_trials(stimparams, (freq, np.nan))
+	rast_ = rast[ix, :]
+	stimparams_ = stimparams[ix, :]
+	r = []; V = []; theta = []
 	
-	ix_times = np.arange(rast_.shape[1]) / 1000.
-	spktimes_ = Spikes.rast2spktimes(rast_, ix_times)
-	cyclelength = 1. / rr
-	train_end = np.float32(npips) / rr
+	for i in xrange(nrrs):
+		ix = RF.get_trials(stimparams_, (np.nan, urrs[i]))
+		r_, V_, theta_ = circ_psth(rast_[ix, :], urrs[i], npips[i], onset = onset, bins = bins, color = color, remove_first = remove_first, ax = axs[i])
+		r.append(r_); V.append(V_); theta.append(theta_)
+	
+	misc.sameyaxis(axs)
+
+	return np.array(r), np.array(V), np.array(theta)
+
+def circ_psth(rast_, rr, npips, onset = 0.05, bins = 20, color = 'b', remove_first = False, ax = None):
+	'''
+	Input:
+		rast_ : subset of block raster corresponding to only the stimuli you want plotted
+		rr : the repetition rate
+		npips : number of pips presented at this rate
+		onset : in seconds, onset time of first pip
+		bins : number of bins to include
+		remove_first : exclude the respose to the first pip
+	'''
+	
+	spktimes_ = Spikes.rast2spktimes(rast_)
+	period = 1. / rr
+	train_end = float(npips) / rr
 	spktimes_chunk = spktimes_ - onset
 	spktimes_chunk = spktimes_chunk[spktimes_chunk > 0]
 	spktimes_chunk = spktimes_chunk[spktimes_chunk < train_end]
-	if rem_first:
-			spktimes_chunk = spktimes_chunk[spktimes_chunk > cyclelength]
-	spktimes_pol = spktimes_chunk * 2*np.pi * rr
-	spktimes_pol = np.mod(spktimes_pol, 2*np.pi)
+	if remove_first:
+		spktimes_chunk = spktimes_chunk[spktimes_chunk > period]
+	spktimes_pol = spktimes_chunk * 2*np.pi * rr # convert to radians
+	spktimes_pol = np.mod(spktimes_pol, 2*np.pi) # force range 0-2pi
+	nspks = spktimes_pol.size
+
+	r, V, theta = circ_stat(spktimes_pol)
 	
-	r, V, theta = RR.circ_stat(spktimes_pol)
-	
+	ax, fig = misc.axis_check(ax, polar = True)
 	if spktimes_pol.size > 0:
-		ax.hist(spktimes_pol, bins = bins, color = color, histtype = 'stepfilled', normed = True)
-		ax.plot([0, theta], [0, r], 'r.-')
+		ax.hist(spktimes_pol, bins = bins, color = color, histtype = 'stepfilled')
+		ax.plot([0, theta], [0, V], 'r.-')
+		ax.plot([0, 0], [0, V*np.cos(theta)], 'r.-')
 
+	return r, V, theta
 
-
-def aligned_psth(spktimes_, rr, npips, onset, visible = False):
-	
-	if spktimes_.size > 0:
-		cyclelength = 1./rr
-
-		spktimes_shift = spktimes_ - onset
-		spktimes_shift = spktimes_shift[spktimes_shift > 0]
-		spktimes_shift = np.round(spktimes_shift * 1000)
-		spktimes_aligned = np.mod(spktimes_shift, cyclelength*1000)
-		spktimes_aligned = spktimes_aligned / 1000.
-
-		x = ax.hist(spktimes_aligned, cyclelength * 1000, visible = visible)
-		apsth = x[0]
-
-	else:
-		apsth = np.nan
-	
-	return apsth
-		
 def circ_stat(alpha):
 	'''
 	Takes alpha, angles in radians
@@ -314,7 +336,6 @@ def circ_stat(alpha):
 		r : the mean vector length (0-1)
 		theta : the mean vector angle
 		V : the summed vector length
-		p : p-value for significantly different from a circular uniform distribution
 	'''
 	n = alpha.size
 	z = np.exp(1j*alpha)
@@ -339,6 +360,75 @@ def rayleigh_test(alpha):
 	p = np.exp(np.sqrt(1+4*n+4*(n**2-R**2))-(1+2*n));
 
 	return p
+
+def aligned_psth_separate_all(rast, stimparams, freq, npips, onset = 0.05, axs = None):
+	'''
+	Input:
+		rast : full block raster
+		stimparams : full block stimulus parameters
+		freq : in Hz, the frequency played to this neuron
+		npips : number of pips for each repetition rate
+		onset : in ms, onset time of first pip
+		axs : a list of axis to which the output will be displayed
+	'''
+	urrs = np.unique(stimparams[:, 1])
+	nrrs = urrs.size
+	if axs is None:
+		axs = [None]*nrrs
+
+	aligned_psths = []
+	for rr, npip, ax in zip(urrs, npips, axs):
+		ix = RF.get_trials(stimparams, (freq, rr))
+		psth = 1000*rast[ix, :].mean(0)
+		aligned_psths.append(aligned_psth_separate(psth, rr, npip, onset = onset, ax = ax))
+
+	return aligned_psths
+
+def aligned_psth_separate(psth, rr, npips, onset = 0.050, wind_offset = -0.020, ax = None, nshow = 6):
+
+	ccycle = plt.rcParams['axes.color_cycle']
+
+	period = 1./rr # period in ms
+	nbins_period = np.round(1000*period).astype(int)
+
+	wind_start = onset+wind_offset
+
+	show_ix = np.round(np.linspace(0, npips-1, nshow)).astype(int)
+	aligned_psth = np.empty((nshow, nbins_period))
+	for i, ix in enumerate(show_ix):
+		start_ix = np.round(1000*(wind_start+ix*period)).astype(int)
+		stop_ix = start_ix+nbins_period
+		aligned_psth[i, :] = psth[start_ix : stop_ix]
+
+	if not ax is None:
+		for i in xrange(nshow):
+			color = ccycle[(nshow-(i+1))]
+			lw = 7.25-(1.25*i)
+			alpha = (2/7.)+(i/7.)
+			ax.plot(Spikes.exp_smoo(aligned_psth[-(i+1), :]), color = color, lw = lw, alpha = alpha)
+
+		ax.set_xlim((1000*(wind_start-0.010), 150))
+
+	return aligned_psth
+
+def aligned_psth(spktimes_, rr, npips, onset, visible = False):
+	
+	if spktimes_.size > 0:
+		cyclelength = 1./rr
+
+		spktimes_shift = spktimes_ - onset
+		spktimes_shift = spktimes_shift[spktimes_shift > 0]
+		spktimes_shift = np.round(spktimes_shift * 1000)
+		spktimes_aligned = np.mod(spktimes_shift, cyclelength*1000)
+		spktimes_aligned = spktimes_aligned / 1000.
+
+		x = ax.hist(spktimes_aligned, cyclelength * 1000, visible = visible)
+		apsth = x[0]
+
+	else:
+		apsth = np.nan
+	
+	return apsth
 
 def plot_rrtf(t, psth, rr, npips, onset = 0.05, duration = 0.025, ax = None):
 
@@ -387,6 +477,3 @@ def plot_stim_psth(stim_psth, stim_params):
 			plot_tone_pips(rrs[r], rrs[r], 0.05, 0.025)
 
 	plt.show();
-	
-	
-	

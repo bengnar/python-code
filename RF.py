@@ -7,7 +7,8 @@ import Spikes, RF, RR
 import misc
 
 # studydir = '/Volumes/BOB_SAGET/Fmr1_RR'
-studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
+# studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
+studydir = '/Users/robert/Desktop/Fmr1_voc/'
 
 ix2freq = 1000 * 2**(np.arange(0, 64)/10.)
 
@@ -24,7 +25,7 @@ def cf_to_rgba(i, N = 40):
 def get_ix2freq():
 	return ix2freq
 
-def freq2ix(freq, start_ix = 20):
+def calc_freq2ix(freq, start_ix = 20):
 
 	_, ix, err = misc.closest(ix2freq[start_ix:], freq, log = True)
 	if err>1:
@@ -359,7 +360,7 @@ def threshold_rf(rf, thresh_mag = 0.25):
 
 	return rf_thresh
 
-def rf_contact_sheet(experiments):
+def rf_contact_sheet(experiments, showcleaned = True):
 
 	if type(experiments) == str:
 		experiments = [experiments]
@@ -389,11 +390,14 @@ def rf_contact_sheet(experiments):
 				textx = rf_shape[1]/2.
 				texty = rf_shape[0] - 1
 
-			# thresholded rf
-			rf_thresh = threshold_rf(rf, 0.25)
-			rf_clust, _ = findmaxcluster(rf_thresh, include_diagonal = False)
+			if showcleaned:
+				# thresholded rf
+				rf_thresh = threshold_rf(rf, 0.25)
+				rf_clust, _ = findmaxcluster(rf_thresh, include_diagonal = False)
 
-			RF = np.hstack([rf, np.ones((rf.shape[0], 1))*rf.max(), rf_clust])
+				RF = np.hstack([rf, np.ones((rf.shape[0], 1))*rf.max(), rf_clust])
+			else:
+				RF = rf
 
 			ax = fig.add_subplot(ncols, ncols, i+1)
 			ax.imshow(RF, interpolation = 'nearest', aspect = 'auto', cmap = 'hot')
@@ -407,7 +411,7 @@ def rf_contact_sheet(experiments):
 				ax.set_yticks([]);
 
 
-		fig.savefig(os.path.join(studydir, 'Sheets', 'rf_' + experiment + '.png'))
+		fig.savefig(os.path.join(studydir, 'Sheets', 'RFs', 'rf_' + experiment + '.png'))
 		fig.clf()
 
 

@@ -1017,7 +1017,10 @@ for session in sessions:
 		
 		
 		
+def get_first(x):
+	return x.first(0)
 
+ganimal.
 		
 		
 		

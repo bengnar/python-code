@@ -160,8 +160,8 @@ class Penetrations():
 		colwidth = (xlim[1]-xlim[0]) / 20.
 		rowwidth = (ylim[0]-ylim[1]) / 20.
 		self.npens += 1
-		x = xlim[0] + (rowwidth * ((self.npens%20)))
-		y = ylim[1] + (colwidth * (np.floor(self.npens/20.)+1))
+		x = xlim[0] - (rowwidth * ((self.npens%20)))
+		y = ylim[1] - (colwidth * (np.floor(self.npens/20.)+1))
 		self.pens.append(self.ax.text(x, y, np.str(self.npens)))
 		self.cfs.append(0)
 				
@@ -227,7 +227,7 @@ class Penetrations():
 				clr = (0, 0, 0)
 			else:
 				clr = cf_to_rgba(cf)
-			self.pens.append(self.ax.text(x, y, str(int(u)), color = clr))
+			self.pens.append(self.ax.text(x, 480-y, str(int(u)), color = clr))
 				
 		plt.draw()
 			

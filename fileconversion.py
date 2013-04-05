@@ -365,12 +365,15 @@ def update_cfs(sessions):
 def unpack_fpath(fpath):
 	
 	absol, relat = os.path.split(fpath)
-	fname, ext = os.path.splitext(relat)
 	
+	session = os.path.split(os.path.split(absol)[0])[1]
+
+	fname, ext = os.path.splitext(relat)
+
 	stimtype = p_str.findall(relat)[0]
 	unitnum = int(p_int.findall(relat)[0])
 	
-	blockpath_info = dict(fpath = fpath, absol = absol, relat = relat, fname = fname, stimtype = stimtype, unitnum = unitnum, ext = ext)
+	blockpath_info = dict(fpath = fpath, absol = absol, session = session, relat = relat, fname = fname, stimtype = stimtype, unitnum = unitnum, ext = ext)
 
 	return blockpath_info
 
@@ -390,9 +393,9 @@ def get_session_unitinfo(session, onlycomplete = None):
 		tmp = unpack_fpath(fpath)
 		unitinfokey = 'u%2.2u' % tmp['unitnum']
 		if not unitinfokey in unitinfo.keys():
-			unitinfo[unitinfokey] = dict(fpath = [], stimtype = [])
+			unitinfo[unitinfokey] = dict(fpath = [], stimtype = [], unitnum = tmp['unitnum'], session = session)
 		b = unitinfo[unitinfokey]
-		for fieldkey in b.iterkeys():
+		for fieldkey in ('fpath', 'stimtype'):
 			b[fieldkey].append(tmp[fieldkey])
 
 	# pop the incomplete sites

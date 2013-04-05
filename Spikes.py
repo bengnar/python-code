@@ -108,11 +108,14 @@ def calc_psth_by_stim(rast, stimparams, bins = 0.001):
 	if type(bins) in (int, np.int32):
 		nbins = bins
 		bins = np.linspace(0, dur_ms, nbins) / 1000
+		bindur = bins[1]-bins[0]
 	elif type(bins) in (float, np.float):
-		bins = np.arange(0, (dur_ms/1000.)+bins, bins)
+		bindur = bins
+		bins = np.arange(0, (dur_ms/1000.)+bindur, bindur)
 		nbins = bins.size-1
 	elif type(bins) is np.ndarray:
 		nbins = bins.size-1
+		bindur = bins[1]-bins[0]
 	
 
 	assert np.unique(ntrials_per_stim).size == 1
@@ -134,8 +137,10 @@ def calc_psth_by_stim(rast, stimparams, bins = 0.001):
 		
 	for m, n in zip(combinations, combinations_ix):
 		ix = RF.get_trials(stimparams, m)
+		ntrials = ix.size
 		spktimes_ = rast2spktimes(rast[ix, :])
 		psth_, edges_ = np.histogram(spktimes_, bins = bins)
+		psth_ = (1./bindur) * (psth_.astype(float)/ntrials)
 		psth[tuple(n)] = psth_
 				
 	return psth, usp
@@ -245,20 +250,26 @@ def plot_spktimes(spktimes, yloc = 0, ax = None, **kwargs):
 	ax.plot(spktimes, np.ones(spktimes.size)*yloc, linestyle = '', marker = '|', markersize = 40, **kwargs)
 	
 
-def plot_sorted_raster(rast, stimparams, ax = None):
+def plot_sorted_raster(rast, stimparams, lineheight = None, ax = None):
 	
 	if ax is None:
 		fig = plt.figure();
 		ax = fig.add_subplot(111);
 	
 	sort_map = stimparams[:, 0].argsort()
-	rast_sort = rast[stimparams[:, 0].argsort()]
+	rast_sort = rast[sort_map]
+	
+	if not lineheight is None:
+		ulevels = np.unique(stimparams[:, 0])
+		nlevels = ulevels.size
+		levelsize = [(stimparams[:, 0]==i).sum() for i in ulevels]
+		lineheight = np.array(levelsize).cumsum()[:-1]-0.5
 
-	plot_raster(rast_sort, ax)
+	plot_raster(rast_sort, lineheight = lineheight, ax = ax)
 	
 	return ax
 
-def plot_raster(rast, ax = None):
+def plot_raster(rast, lineheight = None, ax = None):
 	
 	ax, _ = misc.axis_check(ax)
 
@@ -268,6 +279,10 @@ def plot_raster(rast, ax = None):
 	spktimes = spk[1]/1000.
 	
 	ax.plot(spktimes, spktrials, marker = '|', linestyle = '', ms = 1)
+
+	if not lineheight is None:
+		[ax.axhline(i, color = 'r', lw = 0.5) for i in lineheight]
+
 	ax.set_xlim([0, nbins/1000.])
 	ax.set_ylim([0, ntrials])
 	

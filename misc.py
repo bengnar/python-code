@@ -39,8 +39,8 @@ def closest(vec, x, log = False):
 	
 	if log:
 		orig_vec = vec.copy()
-		vec = np.log10(orig_vec)
-		x = np.log10(x)
+		vec = np.log2(orig_vec)
+		x = np.log2(x)
 	differ = np.abs(vec - x)
 	min_differ = differ.min()
 	ix = differ.argmin()
@@ -538,4 +538,41 @@ def pd_errorbar(y, yerr, ax = None, **kwds):
 	plt.show();		
 
 	return ax
-		
+
+def objectarray2floatarray(x):
+	x_ = np.empty((len(x), len(x[0])))
+	for i in xrange(len(x)):
+		x_[i, :] = x[i]
+	return x_
+
+def facet_wrap(df, df_err = None, fig = None):
+	
+	if fig is None:
+		fig = plt.figure();
+
+	index = zip(*df.index)
+	nindex = len(index)
+	ulevels = np.unique(index[-1])
+	nlevels = ulevels.size
+
+
+	ax = []
+	for i, lev in enumerate(ulevels):
+		ax.append(fig.add_subplot(nlevels, 1, i+1))
+		df.xs(lev, level=nindex-1).transpose().plot(kind = 'line', ax = ax[-1])
+		# df.xs(lev, level=nindex-1)
+		# df_err.xs(lev, level=nindex-1)
+		# pd_errorbar(df, df_err, ax = ax[-1])
+
+	sameyaxis(ax)
+
+
+
+
+
+
+
+
+
+
+
