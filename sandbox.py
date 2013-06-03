@@ -1017,19 +1017,50 @@ for session in sessions:
 		
 		
 		
-def get_first(x):
-	return x.first(0)
+class C(object):
+    def __init__(self):
+        self._x = 'sweet'
 
-ganimal.
+    @property
+    def x(self):
+    	return self._x
+
+    def __len__(self):
+    	return 4
+    # def getx(self):
+    #     return self._x
+    # def setx(self, value):
+    #     self._x = value
+    # def delx(self):
+    #     del self._x
+    # x = property(getx, setx, delx, "I'm the 'x' property.")
 		
 		
+class C(object):
+    def __init__(self):
+        self._x = None
+
+    def getx(self):
+    	print 'getting x you bitch'
+        return self._x
+    def setx(self, value):
+        self._x = value
+    def delx(self):
+        del self._x
+    x = property(getx, setx, delx, "I'm the 'x' property.")		
 		
 		
-		
-		
-		
-		
-		
+
+
+gens = ['ko']*10
+
+ear = ['r', 'l']*10
+hemi = ['r', 'l']*10
+rel_hemi = ['ipsi', 'contra']*10
+lfp = [np.empty(128), np.empty(128)]*10
+stimID = [(1, 2), (1, 3)]*10
+d = dict(ear = ear, hemi = hemi, rel_hemi = rel_hemi, lfp = lfp, stimID = stimID)
+df = pd.DataFrame(d)
 		
 		
 		

@@ -23,17 +23,20 @@ def samexaxis(ax, xlim = None):
 		
 	[a.set_xlim([minx, maxx]) for a in ax]
 	
-def sameyaxis(ax):
+def sameyaxis(ax, xlim = None):
 
-	miny = +np.inf
-	maxy = -np.inf
-
-	for ax_ in ax:
-		ylim = ax_.get_ylim()
-		miny = np.min([miny, ylim[0]])
-		maxy = np.max([maxy, ylim[1]])
-
-	[a.set_ylim([miny, maxy]) for a in ax]
+	minx = +np.inf
+	maxx = -np.inf
+	
+	if xlim is None:
+		for ax_ in ax:
+			xlim = ax_.get_xlim()
+			minx = np.min([minx, xlim[0]])
+			maxx = np.max([maxx, xlim[1]])
+	else:
+		(minx, maxx) = xlim
+		
+	[a.set_ylim([minx, maxx]) for a in ax]
 	
 def closest(vec, x, log = False):
 	
@@ -135,21 +138,27 @@ def plot_spread_y(x):
 	y = np.arange(0, y_*nobs, y_)
 	return x + np.tile(y, (npts, 1))
 
-def errorfill(x, ax = None, color = 'b', err_type = 'sem'):
+def errorfill(x, y, y_err = None, ax = None, color = 'b', err_type = 'sem', **kwargs):
 
 	ax, fig = axis_check(ax)
 
-	x_mean = x.mean(0)
-	if err_type == 'sem':
-		x_err = 0.5*st.sem(x, 0)
-	elif err_type == 'std':
-		x_err = 0.5*st.std(x, 0)
-	x_hi = x_mean + x_err
-	x_lo = x_mean - x_err
-	l = ax.plot(x_mean, color = color)
-	l_up = ax.plot(x_mean+x_err, color = color, alpha = 0.2)
-	l_lo = ax.plot(x_mean-x_err, color = color, alpha = 0.2)
-	ax.fill_between(np.arange(x_mean.size), x_hi, x_lo, alpha = 0.2, color = color)
+	if len(y.shape)==1:
+		y_mean = y
+	else:
+		y_mean = y.mean(0)
+
+	if y_err is None:
+		if err_type == 'sem':
+			y_err = 0.5*st.sem(y, 0)
+		elif err_type == 'std':
+			y_err = 0.5*st.std(y, 0)
+
+	x_hi = y_mean + y_err
+	x_lo = y_mean - y_err
+	l = ax.plot(x, y_mean, color = color)
+	l_up = ax.plot(x, y_mean+y_err, color = color, alpha = 0.2)
+	l_lo = ax.plot(x, y_mean-y_err, color = color, alpha = 0.2)
+	ax.fill_between(x, x_hi, x_lo, alpha = 0.2, color = color, **kwargs)
 	
 	return ax
 
@@ -540,9 +549,9 @@ def pd_errorbar(y, yerr, ax = None, **kwds):
 	return ax
 
 def objectarray2floatarray(x):
-	x_ = np.empty((len(x), len(x[0])))
-	for i in xrange(len(x)):
-		x_[i, :] = x[i]
+	x_ = np.empty((len(x), len(x[x.index[0]])))
+	for i, (k, v) in enumerate(x.iterkv()):
+		x_[i, :] = v
 	return x_
 
 def facet_wrap(df, df_err = None, fig = None):

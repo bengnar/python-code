@@ -13,7 +13,7 @@
 #matlab loader
 
 import pylab
-import scipy.io
+from scipy.io import loadmat
 import numpy as np
 import os, shutil, glob, h5py, re
 import Spikes; reload(Spikes)
@@ -30,7 +30,8 @@ prefix = {'b' : 'RF', 'r' : 'RR', 'q' : 'QU', 'v' : 'VOC', 'i' : 'IS', 'P' : 'RF
 electrodeinfo = dict(\
 fourbyfour = dict(nchan=16, npenperblock=4, chanorder=np.array([[1, 7, 13, 14], [3, 4, 10, 16], [2, 8, 12, 11], [6, 5, 9, 15]])), \
 tungsten = dict(nchan=4, npenperblock=4, chanorder=None), \
-pen = dict(nchan=1, npenperblock=1, chanorder=None)) # a single electrode per block
+pen = dict(nchan=1, npenperblock=1, chanorder=None), \
+eeg = dict(nchan=2, npenperblock=2, chanorder=None)) # a single electrode per block
 
 # any information specific to a stimulus type
 stimulusinfo = dict(\
@@ -38,11 +39,12 @@ RF = dict(nbins=333), \
 RR = dict(nbins=6000), \
 VOC = dict(nbins=20000))
 
-studydir = '/Users/robert/Desktop/Fmr1_voc'
+# studydir = '/Users/robert/Desktop/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/for_shaowen/'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_KO_ising/Sessions/good/'
+studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus'
 
 def fileconvert(sessions, studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 , v = True, electrodetype = 'tungsten', convertprefix = 'b'):
@@ -117,7 +119,7 @@ def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coo
 	if coords is None:
 		coords = load_coords(session)
 	
-	tempfile = scipy.io.loadmat(os.path.join(studydir, 'Sessions', session, 'data', blockID + '.mat')) # load the .mat file0
+	tempfile = loadmat(os.path.join(studydir, 'Sessions', session, 'data', blockID + '.mat')) # load the .mat file0
 	Data0 = tempfile['Data'] # save the Data file0 to a temporary variable
 	# Data0 = tempfile['data'] # when converting already separated penetrations
 
@@ -146,7 +148,7 @@ def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coo
 		
 		u_.close()
 
-def unit(u_, Data0, cc, blockID, nbins = 500):
+def unit(u_, Data0, cc, blockID, nbins = 500, onlylfp = False):
 	
 	# number of time bins to include in the LFP array
 	nlfpsamp = 0
@@ -161,11 +163,12 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 	nstimID = Data0['trial'][0][0][0][0]['Epoch_Value'][0].size
 	
 	# initialze LFP, spike times, spike trials, spike waveform
-	lfp = np.ndarray((0, nlfpsamp), dtype = 'float32')
-	spktimes = np.ndarray(0)
-	spktrials = np.ndarray(0)
-	spkwaveform = np.ndarray((0, 22))
-	rast = np.zeros((ntrials, nbins)) 
+	lfp = np.ndarray((ntrials, nlfpsamp), dtype = 'float32')
+	if not onlylfp:
+		spktimes = np.ndarray(0)
+		spktrials = np.ndarray(0)
+		spkwaveform = np.ndarray((0, 22))
+		rast = np.zeros((ntrials, nbins)) 
 	# initialize frequency and attenuation IDs
 	stimID = np.ndarray((ntrials, nstimID), dtype = 'float32')
 
@@ -177,21 +180,23 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 
 		# get the LFP for this trial and pad it with nans so it can fit in a matrix (since some of the trials have +/-1 data point for LFP)
 		lfpchannel = trial['LFP'][cc]
-		lfpchannel = np.concatenate((lfpchannel, np.zeros(nlfpsamp - len(lfpchannel)) * np.nan))
-		lfp = np.vstack((lfp, lfpchannel))
+		lfp[tt, :len(lfpchannel)] = lfpchannel
+		# lfpchannel = np.concatenate((lfpchannel, np.zeros(nlfpsamp - len(lfpchannel)) * np.nan))
+		# lfp = np.vstack((lfp, lfpchannel))
 
-		spktime = trial['CH'][0][cc]['latency']
-		spktime = np.int32(spktime*1000)
-		if (spktime>nbins-1).any():
-			rm_ix = spktime>=nbins
-			print 'Spike time(s) too late!'
-			print spktime[rm_ix]
-			spktime = spktime[~rm_ix]
-			
-		rast[tt, spktime] = 1
-		if spktime.size > 0:
-			spktrials = np.append(spktrials, np.ones(spktime.size) * tt)
-			spkwaveform = np.concatenate((spkwaveform, trial['CH'][0][cc]['spkwaveform'].T), 0)
+		if not onlylfp:
+			spktime = trial['CH'][0][cc]['latency']
+			spktime = np.int32(spktime*1000)
+			if (spktime>nbins-1).any():
+				rm_ix = spktime>=nbins
+				print 'Spike time(s) too late!'
+				print spktime[rm_ix]
+				spktime = spktime[~rm_ix]
+				
+			rast[tt, spktime] = 1
+			if spktime.size > 0:
+				spktrials = np.append(spktrials, np.ones(spktime.size) * tt)
+				spkwaveform = np.concatenate((spkwaveform, trial['CH'][0][cc]['spkwaveform'].T), 0)
 			
 		# add to Epoch_Value
 		stimID[tt, :] = thisstimID
@@ -206,8 +211,12 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 
 
 	remID = np.array([0., 0.])
-	spk_mask, trial_mask = RF.make_spk_and_trial_masks(spktrials, stimID, remID)
-	rast = rast[~trial_mask, :]
+	if onlylfp:
+		trial_mask = RF.make_trial_mask(stimID, remID)
+	else:
+		spk_mask, trial_mask = RF.make_spk_and_trial_masks(spktrials, stimID, remID)
+		rast = rast[~trial_mask, :]
+	lfp = lfp[~trial_mask, :]
 	# if spktime.size > 0:
 	# 	spkwaveform = spkwaveform[~spk_mask]
 	stimID = stimID[~trial_mask, :]
@@ -222,11 +231,12 @@ def unit(u_, Data0, cc, blockID, nbins = 500):
 	# add stimulus ID datasets to this stimset on this unit
 	u_.create_dataset('lfp', data = lfp, compression = 'gzip')
 	# u_.create_dataset('spkwaveform', data = spkwaveform, compression = 'gzip')
-	u_.create_dataset('rast', data = rast, compression = 'gzip')
+	if not onlylfp:
+		u_.create_dataset('rast', data = rast, compression = 'gzip')
 		
-	if blockID.startswith('b'):
-		rf = RF.calc_rf(rast, stimID)
-		u_.create_dataset('rf', data = rf, compression = 'gzip')
+	# if calcrf:
+	# 	rf = RF.calc_rf(rast, stimID)
+	# 	u_.create_dataset('rf', data = rf, compression = 'gzip')
 	
 	
 def load_coords(session, v = True):
@@ -472,8 +482,82 @@ def get_session_unitinfo(session, onlycomplete = None):
 # 				shutil.move(path0, path1)
 
 	
+def fileconvert_EEG():
+
+	electrodeinfo = dict(npenperblock = 2)
+	
+	sessionpaths = glob.glob(os.path.join(studydir, 'Sessions', 'Pre', 'tnfa*'))
+	
+	for sessionpath in sessionpaths:
+	
+		fpaths = glob.glob(os.path.join(sessionpath, 'data', '*.mat'))
+	
+		for fpath in fpaths:
+
+			absol, relat = os.path.split(fpath)
+			blockname = os.path.splitext(relat)[0]
+			subjID, blocknum, speakerloc = blockname.split('_')
+			blocknum = int(blocknum[1:])
+
+			tempfile = loadmat(fpath) # load the .mat file0
+
+			Data0 = tempfile['Data'] # save the Data file0 to a temporary variable
+			# Data0 = tempfile['data'] # when converting already separated penetrations
+
+			nchan = 2
+
+			print '\t%s' % blockname
+		
+			savepath = os.path.join(studydir, 'Sessions', 'Pre', 'fileconversion', '%s_%s%3.3i.h5' % (subjID, speakerloc, blocknum))
+			u_ = h5py.File(savepath, 'w')
+			unit_EEG(u_, Data0, blockname, nchan = 2)
+			
+			u_.close()
+
+def unit_EEG(u_, Data0, blockID, nchan):
+	
+	# number of time bins to include in the LFP array
+	nlfpsamp = 0
+	for tt, trial in enumerate(Data0['trial'][0][0][0]):
+
+		thislfpsamp = trial['LFP'].shape[1]
+		if thislfpsamp>nlfpsamp:
+			nlfpsamp = thislfpsamp
 	
 	
+	ntrials = Data0['trial'][0][0][0].size # find number of trials
+	nstimID = Data0['trial'][0][0][0][0]['Epoch_Value'][0].size
 	
-	
-	
+	# initialze LFP (nchannels x ntrials x nlfpsamples)
+	lfp = np.ndarray((nchan, ntrials, nlfpsamp), dtype = 'float32')
+	# initialize frequency and attenuation IDs
+	stimID = np.ndarray((ntrials, nstimID), dtype = 'float32')
+
+	for tt in range(ntrials):
+
+		trial = Data0['trial'][0][0][0][tt]
+
+		thisstimID = np.float32(trial['Epoch_Value'][0])
+
+		# get the LFPs for this trial and insert it into the LFP matrix
+		for cc in range(nchan):
+			lfpchannel = trial['LFP'][cc]
+			lfp[cc, tt, :len(lfpchannel)] = lfpchannel
+
+		# add to Epoch_Value
+		stimID[tt, :] = thisstimID
+
+
+	remID = np.array([0., 0.])
+	trial_mask = RF.make_trial_mask(stimID, remID)
+	lfp = lfp[:, ~trial_mask, :]
+	# if spktime.size > 0:
+	# 	spkwaveform = spkwaveform[~spk_mask]
+	stimID = stimID[~trial_mask, :]
+		
+	# save out to file
+	u_.create_dataset('stimID', data = stimID)
+	u_.create_dataset('chan', data = cc)
+	u_.create_dataset('blockID', data = blockID)
+	# add stimulus ID datasets to this stimset on this unit
+	u_.create_dataset('lfp', data = lfp, compression = 'gzip')

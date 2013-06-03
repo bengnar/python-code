@@ -37,7 +37,15 @@ def read_header(f):
 # 	
 # 	while ckID != target_ckID:
 # 		ckID, cksize = read_ckinfo(f)
-	
+
+def find_data_chunk(f):
+
+	data = 'xxxx'
+	while data!='data':
+		data = data[1:] + f.read(1)
+
+	return f.tell()-4
+
 def read_ckinfo(f):
 	
 	ckID, cksize = unpack('<4si', f.read(8))
@@ -69,12 +77,15 @@ def read(fname):
 	else:
 		print 'File format %s not supported' % wFormatTag
 	
+	i = find_data_chunk(f)
+	f.seek(i)
  	ckID, cksize = read_ckinfo(f)
 	if ckID != 'data':
 		print 'Data chunk not found'
+		wef
 	else:
 		nsamp = cksize / sampwidth
-		xs = f.read(cksize)
+		xs = f.read(cksize)[:(nsamp*sampwidth)]
 		x = np.array(unpack('<%i%s' % (nsamp, fmt), xs), dtype = 'float32')
 		
 	f.close()

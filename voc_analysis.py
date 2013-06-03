@@ -126,9 +126,21 @@ def rr_make_contactsheets():
 			[a.cla() for a in fig.get_axes()] # clear all axes
 
 
+def voc_make_contactsheets():
 
-				
-		
+	tmp = np.load(os.path.join(studydir, 'stims', 'voc_43to80kHz.npz'))
+	stims = tmp['P']; T = tmp['T']; F = tmp['F']
+
+	nbins, nfreqs, nstims = stims.shape
+	plot_chunk_size = nbins/3
+
+	fig = plt.figure()
+	ax_stim = [fig.add_subplot(4, 1, i+1) for i in xrange(nstims)]
+	for i in xrange(nstims):
+		ix = np.arange(i*plot_chunk_size, ((i+1)*plot_chunk_size))
+		voc.plot_spec(stims[ix, :, 0].T**0.5, F = F, T = T[ix], ax = ax_stim[i])
+	
+
 		
 		
 
