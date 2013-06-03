@@ -6,11 +6,44 @@ import pandas as pd
 import datetime
 import misc
 
+studydir = '/Volumes/BOB_SAGET/TNFalpha/salicylate'
 
-studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/Gap'
-# dobs = np.loadtxt(os.path.join(studydir, 'dobs.csv'), 'S', delimiter = ',', skiprows = 1)
+def find_amplitude(x):
+    return x.max()-x.min()
 
-# df = pd.read_csv(os.path.join(studydir, 'Processed', 'gap_detect_data.csv'))
+def calc_gap_ratio(df):
+    ufreqs = np.unique(df.freq)
+    gapratio = []
+    # calculate gap ratio for each frequency
+    for freq in ufreqs:
+        
+        # calculate cued and uncued amplitudes for this frequency
+        amplitudes = []
+        for cuetype in range(2):
+            amplitudes.append(calc_gap_ratio_half(cuetype, freq))
+        
+        uncued_mean = mean(amplitudes[0])
+        cued = amplitudes[1]
+        
+        gapratio_ = mean(cued / uncued_mean)
+        gapratio.append(gapratio_)
+
+    return gapratio
+
+def calc_gap_ratio_half(cuetype, freq):
+    '''
+    cuetype : 1 for cued, 0 for uncued
+    '''
+    ampl = []
+    uncued = df.resp[np.logical_and(df.cued==cuetype, df.freq==freq)]
+    for trial in uncued:
+        ampl_ = find_amplitude(trial[100:300])
+        ampl.append(ampl_)
+        
+    return ampl
+    
+def calc_gap_ratio():
+
 
 def convert_to_pd_all():
 	fpaths = glob.glob(os.path.join(studydir, 'data', '*.txt'))
@@ -45,10 +78,6 @@ def make_contact_sheet(df):
 	max_startle = mean_resp.apply(calc_max_startle)
 	mean_startle = max_startle.apply(np.mean)
 	err_startle = max_startle.apply(np.std)
-
-
-
-	# uncued_mean = 
 
 def calc_max_startle(gp):
 
