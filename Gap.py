@@ -1,5 +1,4 @@
 import os, glob
-import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -8,47 +7,82 @@ import misc
 
 studydir = '/Volumes/BOB_SAGET/TNFalpha/salicylate'
 
-def find_amplitude(x):
-    return x.max()-x.min()
+def combine_all():
 
-def calc_gap_ratio(df):
-    ufreqs = np.unique(df.freq)
-    gapratio = []
-    # calculate gap ratio for each frequency
-    for freq in ufreqs:
+    fpaths = glob.glob(os.path.join(studydir, 'fileconversion', '*.h5'))
+    df = []
+    for fpath in fpaths:
+        absol, relat = os.path.split(fpath)
+        animalID, gen, exp, mo, da, yr, _ = relat.split('_')
+        d = pd.HDFStore(fpath, 'r')
+        df_ = d['df']
+        d.close()
         
-        # calculate cued and uncued amplitudes for this frequency
-        amplitudes = []
-        for cuetype in range(2):
-            amplitudes.append(calc_gap_ratio_half(cuetype, freq))
+        df_['animalID'] = [animalID]*len(df_)
+        df_['gen'] = [gen]*len(df_)
+        df_['exp'] = [exp]*len(df_)
+        df_['sess'] = [relat]*len(df_)
         
-        uncued_mean = mean(amplitudes[0])
-        cued = amplitudes[1]
-        
-        gapratio_ = mean(cued / uncued_mean)
-        gapratio.append(gapratio_)
+        df_ = add_amplitude(df_)
+        df_ = add_gapratio(df_)
+        df.append(df_)
 
-    return gapratio
-
-def calc_gap_ratio_half(cuetype, freq):
-    '''
-    cuetype : 1 for cued, 0 for uncued
-    '''
-    ampl = []
-    uncued = df.resp[np.logical_and(df.cued==cuetype, df.freq==freq)]
-    for trial in uncued:
-        ampl_ = find_amplitude(trial[100:300])
-        ampl.append(ampl_)
-        
-    return ampl
+    df = pd.concat(df)
     
-def calc_gap_ratio():
+    return df    
 
+def plot_indiv_results(df):
+
+    df = df[df.cued==1]
+    gp = df.groupby(['animalID', 'exp'])
+    for k, v in gp:
+       print k, v
+       gp2 = v.groupby(['sess', 'freq'])
+       gp2.gapratio.apply(np.mean)
+    
+def plot_group_results():
+    df = df[df.cued==1]
+    plt.close('all')
+    gp = df.groupby(['animalID', 'freq', 'exp'])
+    results_mean = gp.gapratio.apply(np.mean)
+    results_err = gp.gapratio.apply(np.std)
+    
+    misc.pd_errorbar(results_mean, results_err)
+    fig = plt.figure();
+    ax = fig.add_axes([0.1, 0.3, 0.8, 0.6])
+    
+    results.plot(kind = 'bar', ax = ax)
+    return
+
+def add_gapratio(df):
+     
+    if 'ampl' not in df.keys():
+        df = add_amplitude(df)
+
+    uncued_amp = df.ampl[df.cued==0].mean()
+    df['gapratio'] = df.ampl / uncued_amp
+    
+    return df
+    
+def add_amplitude(df):
+    df['ampl'] = find_amplitude(df)
+    return df
+    
+def find_amplitude(df):
+    resps = []
+    for i in df.index:
+        if df.cued[i]==0:
+            resp = df.resp[i][100:300]
+        elif df.cued[i]==1:
+            resp = df.resp[i][200:400]
+        resps.append(resp.max()-resp.min())
+    return resps
 
 def convert_to_pd_all():
 	fpaths = glob.glob(os.path.join(studydir, 'data', '*.txt'))
 	for fpath in fpaths:
-		convert_to_pd(fpath)
+	    if not os.path.exists(fpath.replace('data', 'fileconversion').replace('.txt', '.h5')):
+                convert_to_pd(fpath)
 
 def convert_to_pd(fpath):
 
@@ -85,7 +119,7 @@ def calc_max_startle(gp):
 		x = gp[gp.index[i]][150:300]
 		amp = max(x) - min(x)
 
-	return mean(amp)
+	return np.mean(amp)
 	# startle_trace = startle_trace[150:300]
 	# maxstartle = max(startle_trace)
 	# minstartle = min(startle_trace)
