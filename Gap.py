@@ -6,7 +6,7 @@ import pandas as pd
 import datetime
 import misc
 
-studydir = '/Volumes/BOB_SAGET/TNFalpha/salicylate'
+studydir = '/Users/seunghyukyang/Desktop/Python/salicylate'
 
 def find_amplitude(x):
     return x.max()-x.min()
@@ -42,7 +42,7 @@ def calc_gap_ratio_half(cuetype, freq):
         
     return ampl
     
-def calc_gap_ratio():
+#def calc_gap_ratio():
 
 
 def convert_to_pd_all():
