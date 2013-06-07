@@ -9,54 +9,68 @@ import misc
 studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/awakeeeg'
 stim_duration = 3.
 trial_duration = 4.5
+subjIDs = ['Red102', 'Green102', 'Blue102', 'Red101']
+epochs = ['Pre', 'Post']
+hemis = 'rl'
 
-def make_silent_sheets():
+def post_lesion_silent_comparison():
 
-	fpaths = glob.glob(os.path.join(studydir, 'Sessions', 'Pre', 'both',  '*.h5'))
+	for subjID in subjIDs:
+		for epoch in epochs:
+			d = pd.HDFStore(os.path.join(studydir, 'Sessions', epoch, 'fileconversion', '%s_silent.h5' % subjID))
+			df.append(d['df'])
+			d.close()
 
-	for fpath in fpaths:
+	
+def make_silent_sheets(epoch = 'Pre'):
 
-		absol, relat = os.path.split(fpath)
-		fname, _ = os.path.splitext(relat)
-		
-		f = pd.HDFStore(fpath, 'r')
-		df = f['df']
-		f.close()
+	sesspaths = glob.glob(os.path.join(studydir, 'Sessions', epoch, '*'))
+	for sesspath in sesspaths:
+		fpaths = glob.glob(os.path.join(sesspath, 'fileconversion', '*.h5'))
 
-		df = df[df.rr==-1]
-		df = df[df.good]
-		gp = df.groupby('hemi')
+		for fpath in fpaths:
 
-		nsamp = df.lfp.values[0].size
-		Fs = nsamp / trial_duration
+			absol, relat = os.path.split(fpath)
+			fname, _ = os.path.splitext(relat)
+			
+			f = pd.HDFStore(fpath, 'r')
+			df = f['df']
+			f.close()
 
-		lfp_mean = gp.lfp.apply(np.mean)
-		lfp_err = gp.lfp.apply(np.std)
+			df = df[df.rr==-1]
+			df = df[df.good]
+			gp = df.groupby('hemi')
 
-		fft_mean = gp.fft.apply(np.mean)
-		fft_err = gp.fft.apply(np.std)
+			nsamp = df.lfp.values[0].size
+			Fs = nsamp / trial_duration
 
-		t = np.linspace(0, trial_duration, nsamp)
-		f = np.linspace(0, Fs/2., df.fft.values[0].size)
+			lfp_mean = gp.lfp.apply(np.mean)
+			lfp_err = gp.lfp.apply(np.std)
 
-		fig = plt.figure()
-		ax_lfp = []; ax_fft = []
-		for i, ((k, lfp_mean_), (k, lfp_err_), (k, fft_mean_), (k, fft_err_)) in enumerate(zip(lfp_mean.iterkv(), lfp_err.iterkv(),\
-			fft_mean.iterkv(), fft_err.iterkv())):
-			# lfp_err_ = lfp_err[k]
-			ax_lfp.append(fig.add_subplot(2, 2, i+1));
-			misc.errorfill(t, lfp_mean_, lfp_err_, ax = ax_lfp[-1])
-			ax_lfp[-1].set_title(k)
+			fft_mean = gp.fft.apply(np.mean)
+			fft_err = gp.fft.apply(np.std)
 
-			ax_fft.append(fig.add_subplot(2, 2, i+3));
-			misc.errorfill(f, np.log(fft_mean_), np.log(fft_err_), ax = ax_fft[-1])
+			t = np.linspace(0, trial_duration, nsamp)
+			f = np.linspace(0, Fs/2., df.fft.values[0].size)
 
-		misc.sameyaxis(ax_lfp); misc.sameyaxis(ax_fft)
-		misc.samexaxis(ax_lfp, [0, stim_duration]); misc.samexaxis(ax_fft, [f.min(), f.max()])
+			fig = plt.figure()
+			ax_lfp = []; ax_fft = []
+			for i, ((k, lfp_mean_), (k, lfp_err_), (k, fft_mean_), (k, fft_err_)) in enumerate(zip(lfp_mean.iterkv(), lfp_err.iterkv(),\
+				fft_mean.iterkv(), fft_err.iterkv())):
+				# lfp_err_ = lfp_err[k]
+				ax_lfp.append(fig.add_subplot(2, 2, i+1));
+				misc.errorfill(t, lfp_mean_, lfp_err_, ax = ax_lfp[-1])
+				ax_lfp[-1].set_title(k)
 
-		figpath = os.path.join(studydir, 'Sheets', '%s_silent.png' % fname)
-		fig.savefig(figpath)
-		plt.close(fig)
+				ax_fft.append(fig.add_subplot(2, 2, i+3));
+				misc.errorfill(f, np.log(fft_mean_), np.log(fft_err_), ax = ax_fft[-1])
+
+			misc.sameyaxis(ax_lfp); misc.sameyaxis(ax_fft)
+			misc.samexaxis(ax_lfp, [0, stim_duration]); misc.samexaxis(ax_fft, [f.min(), f.max()])
+
+			figpath = os.path.join(studydir, 'Sheets', '%s_silent.png' % fname)
+			fig.savefig(figpath)
+			plt.close(fig)
 
 def make_noise_rr_sheets():
 
@@ -210,17 +224,21 @@ def plot_signal_quality():
 	fig.savefig(os.path.join(studydir, 'Analysis', 'signal_quality.png'))
 
 
-def mark_good_trials():
+def mark_good_trials(epoch = 'Pre'):
 
-	fpaths = glob.glob(os.path.join(studydir, 'Sessions', 'Pre', 'both', '*.h5'))
-	for fpath in fpaths:
-		f = pd.HDFStore(fpath)
+	sesspaths = glob.glob(os.path.join(studydir, 'Sessions', epoch, '*'))
+	for sesspath in sesspaths:
+		fpaths =  glob.glob(os.path.join(sesspath, 'fileconversion', '*.h5'))
 
-		df = f['df']
-		df = mark_good(df)
-		f['df'] = df
+		for fpath in fpaths:
+		
+			f = pd.HDFStore(fpath, 'r')
 
-		f.close()
+			df = f['df']
+			df = mark_good(df)
+			f['df'] = df
+
+			f.close()
 
 def mark_good(df):
 
@@ -257,23 +275,24 @@ def plot_trials(df):
 	misc.samexaxis(ax1)
 	misc.sameyaxis(ax2)
 
+def convert_to_pd(epoch = 'Pre'):
 
-def combine():
+	sesspaths = glob.glob(os.path.join(studydir, 'Sessions', epoch, '*'))
 
-	fpaths = glob.glob(os.path.join(studydir, 'Sessions', 'Pre', 'fileconversion', '[A-Za-z]*.h5'))
-	subjIDs = np.unique([os.path.splitext(os.path.split(fpath)[1])[0].split('_')[0] for fpath in fpaths])
+	for sesspath in sesspaths:
 
-	hemis = 'rl'
-	stimtypes = ['noise', 'silent']
+		absol, sessID = os.path.split(sesspath)
+		fpaths = glob.glob(os.path.join(sesspath, 'fileconversion', '*.h5'))
 
-	for subjID in subjIDs:
+		for fpath in fpaths:
 
-		LFP = []; HEMI = []; RR = []
+			absol, relat = os.path.split(fpath)
+			sessID, _ = os.path.splitext(relat)
+			subjID, blocknum, stimtype = sessID.split('_')
 
-		for stimtype in stimtypes:
-
-			print stimtype
-			fpath = glob.glob(os.path.join(studydir, 'Sessions', 'Pre', 'fileconversion', '%s_*_%s.h5' % (subjID, stimtype)))[0]
+			LFP = []; STIMID = []; HEMI = []; SUBJID = []; EPOCH = []; SESSID = [];
+			if stimtype == 'noise':
+				ATTEN = [];
 
 			fin = h5py.File(fpath, 'r')
 			lfp = fin['lfp'].value
@@ -284,23 +303,22 @@ def combine():
 
 			for i in xrange(nchan):
 
-				print i, len(HEMI)
 				[LFP.append(lfp[i, j, :]) for j in xrange(ntrials)]
+				if stimtype == 'noise':
+					ATTEN.extend(stimparams[:, 1].tolist())
 				HEMI.extend([hemis[i]]*ntrials)
+				SUBJID.extend([subjID]*ntrials)
+				EPOCH.extend([epoch]*ntrials)
+				SESSID.extend([sessID]*ntrials)
 
-				if stimtype=='noise':
-					rr = stimparams[:, 1].tolist()
-				elif stimtype=='silent':
-					rr = [-1]*ntrials
+			if stimtype == 'noise':
+				d = dict(lfp = LFP, atten = ATTEN, hemi = HEMI, subj = SUBJID, epoch = EPOCH, sess = SESSID)
+			elif stimtype == 'silent':
+				d = dict(lfp = LFP, hemi = HEMI, subj = SUBJID, epoch = EPOCH, sess = SESSID)
+			df = pd.DataFrame(d)
 
-				RR.extend(rr)
-
-		d = dict(lfp = LFP, rr = RR, hemi = HEMI)
-		df = pd.DataFrame(d)
-
-		outpath = os.path.join(studydir, 'Sessions', 'Pre', 'both', '%s.h5' % subjID)
-		fout = pd.HDFStore(outpath, 'w')
-		fout['df'] = df
-		fout.close()
-
+			outpath = fpath.replace('fileconversion', 'both')
+			fout = pd.HDFStore(outpath)
+			fout['df'] = df
+			fout.close()
 

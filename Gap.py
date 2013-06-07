@@ -29,21 +29,50 @@ def combine_all():
 
     df = pd.concat(df)
     
-    return df    
+    return df
 
 def plot_indiv_results(df):
 
+    freqs = np.array([5, 7.1, 10, 14.1, 20, 28.3, 40])
+    colors = dict(salicylate = 'r', control = 'b')
     df = df[df.cued==1]
-    gp = df.groupby(['animalID', 'exp'])
-    for k, v in gp:
-       print k, v
-       gp2 = v.groupby(['sess', 'freq'])
-       gp2.gapratio.apply(np.mean)
+    gp = df.groupby('animalID')
+    for animalID, v1 in gp:
+        print animalID
+        fig = plt.figure();
+        ax = fig.add_subplot(111);
+        gp1 = v1.groupby('exp')
+        for exp, v2 in gp1:
+            gp2 = v2.groupby(['freq', 'sess'])
+            gapratio = gp2.gapratio.apply(np.mean)
+            gapratio.unstack().plot(marker = '.', color = colors[exp], ax = ax)
+            #gapratio.to_csv(os.path.join(studydir, 'forshaowen', '%s_%s.csv' % (animalID, exp)))
+
+        ax.legend()
+        ax.set_ylim([0, 1.3])
+        fig.savefig(os.path.join(studydir, 'Sheets', '_'.join([animalID, 'sheet'])))
+        plt.close(fig);
     
+        
+
+def get_first(df):
+    x = df.ix[df.index[0]]
+    return x
+
 def plot_group_results():
+    
     df = df[df.cued==1]
+    
+    sess_group = df.groupby(['sess', 'freq'])
+    sess_gapratio = sess_group.agg(dict(gapratio = np.mean, exp = get_first))
+    exp_group = sess_gapratio.groupby(['exp', 'freq'])
+    gap_mean = exp_group.gapratio.apply(np.mean)
     plt.close('all')
+    gap_mean.plot()
+
     gp = df.groupby(['animalID', 'freq', 'exp'])
+    
+    
     results_mean = gp.gapratio.apply(np.mean)
     results_err = gp.gapratio.apply(np.std)
     
@@ -126,3 +155,25 @@ def calc_max_startle(gp):
 	# startle_amp = maxstartle-minstartle
 	
 	return startle_amp
+
+
+# add KO and experiment type to file names
+#dates = dict(salicylate = ['5_30_2013', '6_3_2013', '6_4_2013'], control = ['5_23_2013', '5_31_2013', '6_1_2013'])
+#fpaths = glob.glob(os.path.join(studydir, 'fileconversion', '*.h5'))
+#for fpath in fpaths:
+#    absol, relat = os.path.split(fpath)
+#    animalID, da, mo, yr, ext = relat.split('_')
+#    for k, v in dates.iteritems():
+#        for v_ in v:
+#            if v_ in relat:
+#                exp = k
+#                
+#    newrelat = '_'.join([animalID, 'KO', exp, da, mo, yr, ext])
+#    shutil.move(fpath, os.path.join(absol, newrelat))
+    
+    
+    
+    
+    
+    
+    

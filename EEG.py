@@ -10,13 +10,14 @@ from matplotlib.mlab import specgram
 studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/'
 
 
-def fileconvert_all(experiment = 'awakeeeg', epoch = 'Pre'):
+def fileconvert_all(experiment = 'unilateralstim', epoch = 'Pre'):
 
-	matpaths = glob.glob(os.path.join(studydir, experiment, 'Sessions', epoch, 'data', '*.mat'))
-
-	for matpath in matpaths:
-	    print matpath
-            fileconvert(matpath)
+	sesspaths = glob.glob(os.path.join(studydir, experiment, 'Sessions', epoch, '*'))
+	for sesspath in sesspaths:
+		matpaths = glob.glob(os.path.join(sesspath, 'data', '[A-Za-z]*.mat'))	
+		for matpath in matpaths:
+		    print matpath
+	            fileconvert(matpath)
 
 def fileconvert(matpath):
 
@@ -27,7 +28,6 @@ def fileconvert(matpath):
 	u_ = h5py.File(outpath, 'w')
 	
 	lfp, stimID = export_unit(Data0)
-
 	# save out to file
 	u_.create_dataset('lfp', data = lfp, compression = 'gzip')
 	u_.create_dataset('stimID', data = stimID)
