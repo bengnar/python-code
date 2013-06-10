@@ -60,10 +60,9 @@ def get_first(df):
     return x
 
 def plot_group_results():
+    pass
     
-<<<<<<< HEAD
-#def calc_gap_ratio():
-=======
+def calc_gap_ratio():
     df = df[df.cued==1]
     
     sess_group = df.groupby(['sess', 'freq'])
@@ -85,11 +84,10 @@ def plot_group_results():
     
     results.plot(kind = 'bar', ax = ax)
     return
->>>>>>> 89b8351b5d6f53abe8f4b580b335bbb9aeef84c8
 
 def add_gapratio(df):
      
-    if 'ampl' not in df.keys():
+    if 'startleampl' not in df.keys():
         df = add_amplitude(df)
 
     uncued_amp = df.ampl[df.cued==0].mean()
@@ -98,7 +96,7 @@ def add_gapratio(df):
     return df
     
 def add_amplitude(df):
-    df['ampl'] = find_amplitude(df)
+    df['startleampl'] = find_amplitude(df)
     return df
     
 def find_amplitude(df):
