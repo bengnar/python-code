@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os, glob, h5py
 from matplotlib import pyplot as plt
+from scipy.signal import butter, filtfilt
 import Spikes, Lfp, RF
 import misc
 from scipy.io import loadmat
@@ -22,16 +23,16 @@ def fileconvert_all(experiment = 'unilateralstim', epoch = 'Pre'):
 def fileconvert(matpath):
 
 	outpath = matpath.replace('data', 'fileconversion').replace('.mat', '.h5')
-
-	tmpfile = loadmat(matpath)
-	Data0 = tmpfile['Data']
-	u_ = h5py.File(outpath, 'w')
-	
-	lfp, stimID = export_unit(Data0)
-	# save out to file
-	u_.create_dataset('lfp', data = lfp, compression = 'gzip')
-	u_.create_dataset('stimID', data = stimID)
-	u_.close()
+	if not os.path.exists(outpath):
+		tmpfile = loadmat(matpath)
+		Data0 = tmpfile['Data']
+		u_ = h5py.File(outpath, 'w')
+		
+		lfp, stimID = export_unit(Data0)
+		# save out to file
+		u_.create_dataset('lfp', data = lfp, compression = 'gzip')
+		u_.create_dataset('stimID', data = stimID)
+		u_.close()
 
 
 def export_unit(Data0):
@@ -112,3 +113,20 @@ def add_spectrogram(experiment = 'awakeeeg', epoch = 'Pre'):
 		g.create_dataset('T', data = T)
 		f.close()
 
+def remove_60hz(lfp, fs = 384.384384384):
+
+	fs_nyq = fs / 2.
+
+	b, a = butter(5, [59./fs_nyq, 61./fs_nyq], btype = 'bandstop', output = 'ba')
+	lfp_filt = filtfilt(b, a, lfp)
+
+	return lfp_filt
+
+# lfp = df.lfp[0]
+# lfpfilt = df.lfpfilt[0]
+
+# fs = 
+# LFP = np.fft.fftshift(np.fft.rfft(lfp))
+# LFPFILT = np.fft.fftshift(np.fft.rfft(lfpfilt))
+
+# freqs = np.fft.fftfreq(d=1./fs)

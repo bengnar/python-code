@@ -2,6 +2,7 @@ import os, glob, h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import EEG; reload(EEG);
 import misc
 import itertools
 
@@ -19,24 +20,27 @@ def post_lesion_comparison():
 	for subjID in subjIDs:
 
 		df = combine_pre_post(subjID)
-		gp = df.groupby(['ear', 'hemi', 'epoch'])
-		lfp_mean = gp.lfp.apply(np.mean)
+		gp = df.groupby(['ear', 'hemi', 'sess'])
+		lfp_mean = gp.lfpfilt.apply(np.mean)
+		sesss = np.unique(df.sess)
 
 		for i, (hemi, ear) in enumerate(itertools.product(hemis, ears)):
-			for epoch in epochs:
+			for sess in sesss:
 				
-				l, = ax[i].plot(lfp_mean.ix[(ear, hemi, epoch)], color = colors[epoch], label = epoch)
+				l, = ax[i].plot(lfp_mean.ix[(ear, hemi, sess)], label = sess)
 				ax[i].set_title('%s ear / %s hemi' % (ear, hemi))
 
 		ax[0].legend()
+		miny = min([a.get_ylim()[0] for a in ax])
+		maxy = max([a.get_ylim()[1] for a in ax])
+		[a.set_ylim([miny, maxy]) for a in ax]
 		fig.savefig(os.path.join(studydir, 'Analysis', '%s_post_lesion_comparison.png' % subjID))
 		[a.cla() for a in fig.get_axes()]
+
 
 	plt.close(fig)
 
 def combine_pre_post(subjID):
-
-	epochs = ['Pre', 'Post']
 
 	df_ = []
 	for epoch in epochs:
@@ -104,9 +108,14 @@ def make_contactsheets():
 
 def combine(epoch = 'Pre', stimtype = 'noise'):
 
+	'''
+	combine left and right ear stimulation blocks into one pandas DataFrame
+	'''
 	sesspaths = glob.glob(os.path.join(studydir, 'Sessions', epoch, '*'))
+	
 	for sesspath in sesspaths:
 		absol, sessID = os.path.split(sesspath)
+		print sessID
 		fpaths = glob.glob(os.path.join(sesspath, 'fileconversion', '*.h5'))
 		subjIDs = np.unique([os.path.splitext(os.path.split(fpath)[1])[0].split('_')[0] for fpath in fpaths])
 
@@ -115,7 +124,7 @@ def combine(epoch = 'Pre', stimtype = 'noise'):
 
 		for subjID in subjIDs:
 
-			LFP = []; ATTEN = []; EAR = []; HEMI = []; RELHEMI = []; SESSID = [];
+			LFP = []; LFPFILT = []; ATTEN = []; EAR = []; HEMI = []; RELHEMI = []; SESSID = [];
 
 			for ear in ears:
 
@@ -130,8 +139,8 @@ def combine(epoch = 'Pre', stimtype = 'noise'):
 
 				for i in xrange(nchan):
 
-					# LFP.extend(lfp[i, ...].tolist())
 					[LFP.append(lfp[i, j, :]) for j in xrange(ntrials)]
+					[LFPFILT.append(EEG.remove_60hz(lfp[i, j, :])) for j in xrange(ntrials)]
 					ATTEN.extend(stimparams[:, 1].tolist())
 					EAR.extend([ear]*ntrials)
 					HEMI.extend([hemis[i]]*ntrials)
@@ -142,7 +151,7 @@ def combine(epoch = 'Pre', stimtype = 'noise'):
 					RELHEMI.extend([relhemi]*ntrials)
 					SESSID.extend([sessID]*ntrials)
 
-			d = dict(lfp = LFP, atten = ATTEN, ear = EAR, hemi = HEMI, relhemi = RELHEMI, sess = SESSID)
+			d = dict(lfp = LFP, lfpfilt = LFPFILT, atten = ATTEN, ear = EAR, hemi = HEMI, relhemi = RELHEMI, sess = SESSID)
 			df = pd.DataFrame(d)
 
 			fout = pd.HDFStore(os.path.join(sesspath, 'both', '%s_both.h5' % subjID))
