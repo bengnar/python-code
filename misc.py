@@ -8,6 +8,10 @@ import itertools
 import Tkinter
 import tkFileDialog
 
+def get_first(df):
+    x = df.ix[df.index[0]]
+    return x
+
 def samexaxis(ax, xlim = None):
 	
 	minx = +np.inf
@@ -155,10 +159,10 @@ def errorfill(x, y, y_err = None, ax = None, color = 'b', err_type = 'sem', **kw
 
 	x_hi = y_mean + y_err
 	x_lo = y_mean - y_err
-	l = ax.plot(x, y_mean, color = color)
+	l = ax.plot(x, y_mean, color = color, **kwargs)
 	l_up = ax.plot(x, y_mean+y_err, color = color, alpha = 0.2)
 	l_lo = ax.plot(x, y_mean-y_err, color = color, alpha = 0.2)
-	ax.fill_between(x, x_hi, x_lo, alpha = 0.2, color = color, **kwargs)
+	ax.fill_between(x, x_hi, x_lo, alpha = 0.2, color = color)
 	
 	return ax
 

@@ -1,29 +1,38 @@
 import numpy as np
-import pandas as pd
-import os, glob, h5py
+import os, glob, h5py, itertools
 from matplotlib import pyplot as plt
 from scipy.signal import butter, filtfilt
-import Spikes, Lfp, RF
+import Spikes, RF
 import misc
 from scipy.io import loadmat
 from matplotlib.mlab import specgram
 
 studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/'
 
+freqbands = dict(delta=[1,4], theta=[4,8], beta=[13,30], gamma=[30,70])
 
 def fileconvert_all(experiment = 'unilateralstim', epoch = 'Pre'):
+	experiments = ['awakeeeg', 'unilateralstim']
+	epochs = ['Pre', 'Post']
+	for epoch in epochs:
+		for experiment in experiments:
+			sesspaths = glob.glob(os.path.join(studydir, experiment, 'Sessions', epoch, '*'))
+			for sesspath in sesspaths:
 
-	sesspaths = glob.glob(os.path.join(studydir, experiment, 'Sessions', epoch, '*'))
-	for sesspath in sesspaths:
-		matpaths = glob.glob(os.path.join(sesspath, 'data', '[A-Za-z]*.mat'))	
-		for matpath in matpaths:
-		    print matpath
-	            fileconvert(matpath)
+				convertpath = os.path.join(sesspath, 'fileconversion')
+				if not os.path.exists(convertpath):
+					print 'Making fileconversion folder: %s' % convertpath
+					os.mkdir(convertpath)
+
+				matpaths = glob.glob(os.path.join(sesspath, 'data', '[A-Za-z]*.mat'))	
+				for matpath in matpaths:
+					fileconvert(matpath)
 
 def fileconvert(matpath):
 
 	outpath = matpath.replace('data', 'fileconversion').replace('.mat', '.h5')
 	if not os.path.exists(outpath):
+		print matpath
 		tmpfile = loadmat(matpath)
 		Data0 = tmpfile['Data']
 		u_ = h5py.File(outpath, 'w')
@@ -122,11 +131,85 @@ def remove_60hz(lfp, fs = 384.384384384):
 
 	return lfp_filt
 
-# lfp = df.lfp[0]
-# lfpfilt = df.lfpfilt[0]
 
-# fs = 
-# LFP = np.fft.fftshift(np.fft.rfft(lfp))
-# LFPFILT = np.fft.fftshift(np.fft.rfft(lfpfilt))
+def calc_power_spectrum(lfp):
+	
+	npts, ntrials = lfp.shape
+	Fs = 384.
+	X = np.zeros()
+	x = np.zeros((129, 7, ntrials))
+	for i in range(ntrials):
+		x[:, :, i] = specgram(lfp[:127, i], Fs = Fs)[0]
 
-# freqs = np.fft.fftfreq(d=1./fs)
+def calc_lfp_by_stim(rast, stimparams):
+
+	nstimparams = stimparams.shape[1]
+	
+	usp = []
+	for i in range(nstimparams):	
+		usp.append(list(np.unique(stimparams[:, i])))
+
+	nparamlevels = np.empty(nstimparams, dtype = np.int32)
+	for i in range(nstimparams):
+		nparamlevels[i] = len(usp[i])
+
+	ntrials_per_stim = np.zeros(nparamlevels)
+
+	'''
+	compute
+	nbins	:	the number of bins
+	'''
+	dur_ms = rast.shape[1] # number of milliseconds
+	t_ms = np.arange(dur_ms) # time indices in ms
+	nbins = rast.shape[-1]
+	assert np.unique(ntrials_per_stim).size == 1
+
+	ntrials = np.int32(ntrials_per_stim[0])
+	
+	psth_shape = np.hstack((nparamlevels, nbins))
+	psth = np.zeros(psth_shape)
+	
+	combinations = []
+	combinations_ix = []
+	for i in itertools.product(*usp):
+		combinations.append(i)
+		combinations_ix_ = []
+		for j, i_ in enumerate(i):
+			q = (np.array(usp[j])==i_).nonzero()[0][0]
+			combinations_ix_.append(q)
+		combinations_ix.append(combinations_ix_)
+		
+	for m, n in zip(combinations, combinations_ix):
+		ix = RF.get_trials(stimparams, m)
+		ntrials = ix.size
+		lfp_ = rast[ix, :]
+		psth[tuple(n)] = lfp_.sum(0)
+				
+	return psth, usp
+
+def zero_60Hz(df, fieldname = 'FFTabs'):
+
+	ix = np.logical_and(fft_freq>58, fft_freq<62)
+	for i, ds in df.iterrows():
+		ds['FFTabs'][ix] = 0.
+
+	return df
+
+def calc_freqband_power(df, freqband, bandname, fft_freq):
+
+	pwr = []
+	ix = np.logical_and(fft_freq>freqband[0], fft_freq<freqband[1])
+	for i, ds in df.iterrows():
+		pwr_ = ds['FFTabs'][ix].sum()
+		pwr.append(pwr_)
+
+	df[bandname] = pwr
+
+	return df
+
+def calc_freqband_power_all(df, freqbands, fft_freq):
+
+	for (bandname, freqband) in freqbands.iteritems():
+		df = calc_freqband_power(df, freqband, bandname, fft_freq)
+
+	return df

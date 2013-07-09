@@ -3,11 +3,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import datetime
-import misc
+import misc; reload(misc);
 
 studydir = '/Volumes/BOB_SAGET/TNFalpha/salicylate/Gap'
 freqs = np.array([5, 7.1, 10, 14.1, 20, 28.3, 40])
 ls = dict(salicylate = '--', control = '-')
+colors = dict(salicylate = 'b', control = 'g')
 
 def combine_all(cage = ''):
 
@@ -24,7 +25,9 @@ def combine_all(cage = ''):
         df_['gen'] = [gen]*len(df_)
         df_['exp'] = [exp]*len(df_)
         df_['sess'] = [relat]*len(df_)
-        
+        df_['trial'] = range(len(df_))
+
+        df = df[:100]
         df_ = add_amplitude(df_)
         df_ = add_gapratio(df_)
         df.append(df_)
@@ -60,18 +63,39 @@ def get_first(df):
     x = df.ix[df.index[0]]
     return x
 
-def plot_group_results():
+def apply_sem(df):
+    return np.std(df) / np.sqrt(len(df))
+
+
+def plot_group_results(df):
 
     df = df[df.cued==1]
+
+    # group by session to get session mean gap detection
     gp_sess = df.groupby(['sess', 'freq'])
     gapratio_sess = gp_sess.agg(dict(gapratio = np.mean, freq = get_first, gen = get_first, exp = get_first, animalID = get_first))
-    gp_animal = gapratio_sess.groupby(['animalID', 'freq'])
-    gapratio_animal = gp_animal.agg(dict(gapratio = np.mean, freq = get_first, gen = get_first, exp = get_first))
-    gp_exp = gapratio_animal.groupby(['exp', 'freq'])
-    gapratio_exp = gp_exp.gapratio.apply(np.mean)
 
-    plot(gapratio_exp)
-    pass    
+    # combine sessions for each animal to give animal performance by condition
+    gp_animal = gapratio_sess.groupby(['animalID', 'exp', 'freq'])
+    gapratio_animal = gp_animal.agg(dict(gapratio = np.mean, freq = get_first, gen = get_first, exp = get_first))
+    gp_exp = gapratio_animal.groupby(['freq', 'exp'])
+    gapratio_mean = gp_exp.gapratio.apply(np.mean).unstack()
+    gapratio_sem = gp_exp.gapratio.apply(apply_sem).unstack()
+    fig = plt.figure();
+    ax = fig.add_subplot(111);
+    for (k, v), (kerr, verr) in zip(gapratio_mean.iteritems(), gapratio_sem.iteritems()):
+        misc.errorfill(np.arange(freqs.size), v, verr, ax = ax, color = colors[k], marker = '.', ls = '-', label = k)
+
+    ax.legend()
+
+    maxy = ax.get_ylim()[1]
+    ax.set_ylim([0, maxy])
+    ax.set_ylabel('Gap ratio')
+    ax.set_xlabel('Frequency (kHz)')
+    ax.set_xticks(range(freqs.size))
+    ax.set_xticklabels(freqs)
+
+    return ax
 
 def calc_gap_ratio():
     df = df[df.cued==1]
