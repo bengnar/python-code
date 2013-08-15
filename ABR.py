@@ -48,7 +48,7 @@ def plot_abr_attens(t, abr, attens, y_offset_mag = 0.0003, ax = None, **kwargs):
 	abr = abr + y_offset
 
 	ax.plot(t, abr, **kwargs)
-	# ax.legend(attens)
+	ax.legend(attens)
 	
 	plt.show()
 

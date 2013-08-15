@@ -7,9 +7,46 @@ import scipy.stats as st
 import itertools
 import Tkinter
 import tkFileDialog
+import datetime
+
+def str2date(s, delimiter = '_', format = 'MMDDYYYY'):
+	'''
+	Input:
+		s: a string representation of a date MO_DA_YR
+	Output:
+		date: datetime formatted date
+	'''
+	if format == 'MMDDYYYY':
+		mo, da, yr = s.split(delimiter)
+	elif format == 'YYYYMMDD':
+		yr, mo, da = s.split(delimiter)
+	return datetime.date(int(yr), int(mo), int(da))
+
+def pd_sem(ds):
+
+	n = len(ds)
+	ds_mean = np.mean(ds)
+	runningsum = 0
+	for i in ds:
+		runningsum = runningsum + (i-ds_mean)**2
+	std = np.sqrt(runningsum / (n-1))
+	sem = std / np.sqrt(n)
+	return sem
+
+def pd_sem_2d(ds):
+
+	n = len(ds)
+	nsamp = len(ds[ds.index[0]])
+	ds_mean = np.mean(ds)
+	runningsum = np.zeros(nsamp)
+	for i in ds:
+		runningsum = runningsum + (i-ds_mean)**2
+	std = np.sqrt(runningsum / (n-1))
+	sem = std / np.sqrt(n)
+	return sem
 
 def get_first(df):
-    x = df.ix[df.index[0]]
+    x = df.iloc[0]
     return x
 
 def samexaxis(ax, xlim = None):

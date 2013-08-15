@@ -6,8 +6,8 @@ import nitime as nt
 import nitime.viz as viz
 from nitime.analysis import SNRAnalyzer
 
-# studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
-studydir = '/Users/robert/Desktop/Fmr1_voc'
+studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
+# studydir = '/Users/robert/Desktop/Fmr1_voc'
 sessionpaths = glob.glob(os.path.join(studydir, 'Sessions', 'voc_*'))
 sessions = [os.path.split(s)[1] for s in sessionpaths]
 

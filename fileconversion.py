@@ -41,10 +41,10 @@ VOC = dict(nbins=20000))
 
 # studydir = '/Users/robert/Desktop/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
-# studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
+studydir = '/Volumes/BOB_SAGET/Fmr1_voc' 
 # studydir = '/Volumes/BOB_SAGET/for_shaowen/'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_KO_ising/Sessions/good/'
-studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus'
+# studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus'
 
 def fileconvert(sessions, studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 , v = True, electrodetype = 'tungsten', convertprefix = 'b'):
@@ -203,7 +203,7 @@ def unit(u_, Data0, cc, blockID, nbins = 500, onlylfp = False):
 
 			# end if valid ID
 
-	# # stoopid TDT shift
+	# # stoopid TDT shift (do for RF blocks of Fmr1_voc)
 	# stimID = stimID[1:, :]
 	# rast = rast[:-1, :]
 	# lfp = lfp[:-1, :]

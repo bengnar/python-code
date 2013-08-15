@@ -1049,32 +1049,137 @@ class C(object):
         del self._x
     x = property(getx, setx, delx, "I'm the 'x' property.")		
 		
+'''Load in translation between attenuation and db SPL'''		
+tmp = np.loadtxt('/Users/robert/Dropbox/FMRP/JN_3/ABR_stuff/threshold_key.csv', 'str', delimiter = ',')
+colnames = tmp[0, 1:]
+rownames = tmp[1:, 0]
+x = tmp[1:, 1:]
+d = dict()
+for i in xrange(len(colnames)):
+	d[colnames[i]] = np.int32(np.vstack((rownames, x[:, i])))
+
+'''Translate atten to db SPL'''
+x = pd.read_csv('/Users/robert/Dropbox/FMRP/JN_3/ABR_stuff/thresholds2.csv')
+threshs = []
+for ind, x_ in x.iterrows():
+	# if x_['thresh']==0:
+	# 	thresh = 100
+	# else:
+	freqkey = str(x_['freq'])
+	try:
+		ix = (d[freqkey][1, :]==x_['thresh']).nonzero()[0][0]
+		thresh = float32(d[freqkey][0, ix])
+	except:
+		thresh = 75
+	threshs.append(thresh)		
 		
 
+xls = pd.ExcelFile('/Users/robert/Dropbox/FMRP/JN_3/thresholds.xls')
+x = xls.parse('thresholds')
 
-gens = ['ko']*10
+animalnum = x.animal.astype(np.str)
+x['animalID'] = x.gen+x.exp+animalnum
+		
+gengp = x.groupby(('gen', 'exp', 'freq'))
+genmeans = gengp.agg(dict(threshdbspl = np.mean))
+generrs = gengp.agg(dict(threshdbspl = misc.pd_sem))
 
-ear = ['r', 'l']*10
-hemi = ['r', 'l']*10
-rel_hemi = ['ipsi', 'contra']*10
-lfp = [np.empty(128), np.empty(128)]*10
-stimID = [(1, 2), (1, 3)]*10
-d = dict(ear = ear, hemi = hemi, rel_hemi = rel_hemi, lfp = lfp, stimID = stimID)
-df = pd.DataFrame(d)
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+means = genmeans.unstack().values
+stds = generrs.unstack().values
+labels = genmeans.unstack().index
+fig = plt.figure()
+ax = fig.add_subplot(111)
+freqs = ['4k', '8k', '16k', '32k', '45k']
+for i in xrange(4):
+	ax.errorbar(range(len(freqs)), means[i, :], yerr = stds[i, :], label = labels[i], mew = 0, marker = 'o', ms = 5, capsize = 0)
+
+ax.set_xticks(range(len(freqs)))
+ax.set_xticklabels(freqs)
+ax.legend()
+plt.show()
+fig.savefig('tmp.eps')
+
+animalpaths = glob.glob('*')
+for animalpath in animalpaths:
+	os.chdir(animalpath)
+	fnames = glob.glob('*')
+	for fname in fnames:
+		d = pd.HDFStore(fname)
+		df = d['df']
+		df = Gap.add_gapratio(df)
+		d['df'] = df
+		d.close()
+
+	os.chdir('..')
+	
+
+'''Move individual files to folders named for the animal'''
+# studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/Gap'
+studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/thalidomide/Gap/data'
+saveddir = os.getcwd()
+os.chdir(studydir)
+fnames = glob.glob('*.txt')
+for fname in fnames:
+	animalID = fname.split('_')[0]
+	ix = p.search(animalID).start()
+	cagenum = animalID[ix:]
+	animal = animalID[:ix]
+	outdir = cagenum+animal
+	if not os.path.exists(outdir):
+		os.mkdir(outdir)
+	shutil.move(fname, os.path.join(outdir, fname))
+os.chdir(saveddir)
+
+
+dir1 = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/incoming/xxx'
+dir2 = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/thalidomide/Gap/data'
+fnames1 = glob.glob(os.path.join(dir1, '*.txt'))
+fnames2 = glob.glob(os.path.join(dir2, '*.txt'))
+set1 = []
+set2 = []
+for fname in fnames1:
+	absol, relat = os.path.split(fname)
+	animalID, _, _, mo, da, yr, _ = relat.split('_')
+	set1.append('_'.join((mo, da, yr, animalID)))
+
+for fname in fnames2:
+	absol, relat = os.path.split(fname)
+	animalID, _, _, mo, da, yr, _ = relat.split('_')
+	set2.append('_'.join((mo, da, yr, animalID)))
+
+set1 = set(set1); set2 = set(set2);
+diffset = list(set1-set2)
+diffset.sort()
+
+
+
+'''combine two parts of the same gap detect session'''
+dir1 = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/tmp'
+os.chdir(dir1)
+fnames1 = glob.glob('* (1).txt')
+fnames2 = glob.glob('* (2).txt')
+fnames1.sort()
+fnames2.sort()
+for fname1, fname2 in zip(fnames1, fnames2):
+	fname, ext = os.path.splitext(fname1)
+	outfname = fname[:-4]+ext
+	header = np.loadtxt(fname1, 'S')[0]
+	x1 = np.loadtxt(fname1, 'S', skiprows = 1)
+	x2 = np.loadtxt(fname2, 'S', skiprows = 1)
+	x = np.vstack((x1, x2))
+	np.savetxt(outfname, x.astype(str), '%s', header = '\t'.join(header), delimiter = '\t', comments = '')
+
+
+
+fpaths = glob.glob('*')
+fpaths.sort()
+fig = plt.figure();
+for i, fpath in enumerate(fpaths):
+	df = Gap.txt2pd(fpath)
+	ax = fig.add_subplot(4, 3, i+1)
+	Gap.plot_startleampl(df, ax)
+	ax.set_ylim([0, 8])
+	ax.set_title(os.path.split(fpath)[1])
+	ax.set_xticklabels('')
+
+

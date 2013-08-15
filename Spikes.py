@@ -142,7 +142,8 @@ def calc_psth_by_stim(rast, stimparams, bins = 0.001):
 		psth_, edges_ = np.histogram(spktimes_, bins = bins)
 		psth_ = (1./bindur) * (psth_.astype(float)/ntrials)
 		psth[tuple(n)] = psth_
-				
+	
+	psth = psth.squeeze()		
 	return psth, usp
 
 

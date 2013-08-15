@@ -5,67 +5,142 @@ import pandas as pd
 import datetime
 import misc; reload(misc);
 
-studydir = '/Volumes/BOB_SAGET/TNFalpha/salicylate/Gap'
 freqs = np.array([5, 7.1, 10, 14.1, 20, 28.3, 40])
-ls = dict(salicylate = '--', control = '-')
-colors = dict(salicylate = 'b', control = 'g')
 
-def combine_all(cage = ''):
+def fileconvert_all(studydir):
+    '''
+    Converts all of the text file outputs in */Gap/data and converts them to pandas formatted hdf5 files.
+    Stores the results in */Gap/fileconversion
+    '''
 
-    fpaths = glob.glob(os.path.join(studydir, 'fileconversion', '*%s*.h5' % cage))
-    df = []
-    for fpath in fpaths:
-        absol, relat = os.path.split(fpath)
-        animalID, gen, exp, mo, da, yr, _ = relat.split('_')
-        d = pd.HDFStore(fpath, 'r')
-        df_ = d['df']
-        d.close()
-        
-        df_['animalID'] = [animalID]*len(df_)
-        df_['gen'] = [gen]*len(df_)
-        df_['exp'] = [exp]*len(df_)
-        df_['sess'] = [relat]*len(df_)
-        df_['trial'] = range(len(df_))
+    # dobs = pd.read_csv(os.path.join(studydir, 'dobs.csv'))
+    gapdetectiondir = os.path.join(studydir, 'gapdetection')
+    if not os.path.exists(gapdetectiondir):
+        os.mkdir(gapdetectiondir)
 
-        df = df[:100]
-        df_ = add_amplitude(df_)
-        df_ = add_gapratio(df_)
-        df.append(df_)
+    animalpaths = glob.glob(os.path.join(studydir, 'data', '[0-9]*'))
+    for animalpath in animalpaths:
+        fpaths = glob.glob(os.path.join(animalpath, '[A-Za-z]*.txt'))
+        for fpath in fpaths:
 
-    df = pd.concat(df)
-    df.index = np.arange(len(df))
-    
+            absol, relat = os.path.split(fpath)
+            animalID, gen, condition, mo, da, yr, _ = relat.split('_')
+
+            animalinfo = get_animalinfo(animalID, studydir)
+            dob_str = animalinfo.DOB.values[0]
+
+            dob = misc.str2date(dob_str, delimiter = '/', format = 'MMDDYYYY')
+
+            if hasattr(animalinfo, 'date1'):
+                date1_str = animalinfo.date1.values[0]
+                date1 = misc.str2date(date1_str, delimiter = '/', format = 'MMDDYYYY')
+
+            mo = '%2.2u' % int(mo)
+            da = '%2.2u' % int(da)
+            yr = '%4.4u' % int(yr)
+
+            sess_str = '_'.join((yr, mo, da))
+            sess_date = misc.str2date(sess_str, delimiter = '_', format = 'YYYYMMDD')
+            age = (sess_date - dob).days
+            if hasattr(animalinfo, 'date1'):
+                postdate1 = (sess_date - date1).days
+            outpath = os.path.join(studydir, 'gapdetection', '%s.csv' % '_'.join((animalID, gen, condition, yr, mo, da)))
+
+            if not os.path.exists(outpath):
+                gapratio = fileconvert(fpath)
+                if hasattr(animalinfo, 'date1'):
+                    df = pd.DataFrame(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition, sess = sess_str, age = age, postdate1 = postdate1))
+                else:
+                    df = pd.DataFrame(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition, sess = sess_str, age = age))
+                df.to_csv(outpath)
+
+def fileconvert(fpath):
+    '''
+    Takes the text file output for one animal and converts it to a pandas formatted hdf5 file
+    '''
+    # cueddict = {0:'uncued', 1:'cued'}
+
+    # print fpath
+    # header = np.loadtxt(fpath, 'S', delimiter = '\t')[0]
+    # startletrace_ix = len(header)
+    # x = np.loadtxt(fpath, 'f', skiprows = 1)
+    # freq = x[:, 0]
+    # cued = x[:, 1]
+    # cuedstr = map(lambda x: cueddict[x], cued)
+    # # ampl = x[:, 2]
+    # # holdtime = x[:, 4]
+    # resp = [i for i in x[:, 5:]]
+    # df = pd.DataFrame(dict(freq = freq, cued = cuedstr, resp = resp))
+
+    df = txt2pd(fpath)
+
+    df = add_startleampl(df)
+
+    freqgp = df.groupby(('freq', 'cued'))
+    startlemean = freqgp.agg(dict(startleampl = np.mean))
+    startlemean = startlemean.unstack('cued')
+    gapratio = startlemean['startleampl']['cued'] / startlemean['startleampl']['uncued']
+
+    return gapratio
+
+def txt2pd(fpath):
+
+    print fpath
+
+    cueddict = {0:'uncued', 1:'cued'}
+
+    header = np.loadtxt(fpath, 'S', delimiter = '\t')[0]
+    startletrace_ix = len(header)
+    x = np.loadtxt(fpath, 'f', skiprows = 1)
+    freq = x[:, 0]
+    cued = x[:, 1]
+    cuedstr = map(lambda x: cueddict[x], cued)
+    # ampl = x[:, 2]
+    # holdtime = x[:, 4]
+    resp = [i for i in x[:, 5:]]
+    df = pd.DataFrame(dict(freq = freq, cued = cuedstr, resp = resp))
+
     return df
 
-def plot_indiv_results(df):
+def calc_gap_detection(df):
+    df = df[df.cued=='cued']
+    gp = df.groupby('freq')
+    gapdetection = gp.agg(dict(gapratio = np.mean))
 
-    df = df[df.cued==1]
-    gp = df.groupby('animalID')
-    for animalID, v1 in gp:
-        print animalID
-        fig = plt.figure();
-        ax = fig.add_subplot(111);
-        gp1 = v1.groupby('exp')
-        for exp, v2 in gp1:
-            gp2 = v2.groupby(['freq', 'sess'])
-            gapratio = gp2.gapratio.apply(np.mean)
-            gapratio.unstack().plot(marker = '.', linestyle = ls[exp], ax = ax)
-            #gapratio.to_csv(os.path.join(studydir, 'forshaowen', '%s_%s.csv' % (animalID, exp)))
+    return gapdetection
 
-        ax.legend(loc = 'lower left')
-        ax.set_ylim([0, 1.3])
-        fig.savefig(os.path.join(studydir, 'Sheets', '_'.join([animalID, 'sheet'])))
-        plt.close(fig);
-    
-        
+def plot_startleampl(df, ax = None):
+    '''
+    plots the startle amplitude as a function of trial number
+    uncued: red
+    cued: blue
+    '''
+    if not hasattr(df, 'startleampl'):
+        df = add_startleampl(df)
 
-def get_first(df):
-    x = df.ix[df.index[0]]
-    return x
+    ax, fig = misc.axis_check(ax)
 
-def apply_sem(df):
-    return np.std(df) / np.sqrt(len(df))
+    cuegp = df.groupby('cued')
+    colors = dict(cued ='b', uncued='r')
+    for i, j in cuegp:
+        ax.plot(j.index, j.startleampl, '.', color = colors[i])
 
+def plot_startleamp_per_freq(df):
+
+    gp = df.groupby(('freq', 'cued'))
+    for i, j in cuegp:
+        freqgp.groupby()
+        print i
+
+def plot_cued_vs_uncued(df):
+    cuegp = df.groupby('cued')
+    respmean = cuegp.resp.apply(np.mean)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for i, j in respmean.iteritems():
+        ax.plot(j, label = i)
+
+    ax.legend()
 
 def plot_group_results(df):
 
@@ -97,7 +172,10 @@ def plot_group_results(df):
 
     return ax
 
-def calc_gap_ratio():
+def plot_gap_ratio():
+    '''
+    Somehow plots the gap ratio for all animals averaged over multiple sessions
+    '''
     df = df[df.cued==1]
     
     sess_group = df.groupby(['sess', 'freq'])
@@ -109,7 +187,6 @@ def calc_gap_ratio():
 
     gp = df.groupby(['animalID', 'freq', 'exp'])
     
-    
     results_mean = gp.gapratio.apply(np.mean)
     results_err = gp.gapratio.apply(np.std)
     
@@ -119,95 +196,41 @@ def calc_gap_ratio():
     
     results.plot(kind = 'bar', ax = ax)
     return
-
-def add_gapratio(df):
-     
-    if 'startleampl' not in df.keys():
-        df = add_amplitude(df)
-
-    uncued_amp = df.startleampl[df.cued==0].mean()
-    df['gapratio'] = df.startleampl / uncued_amp
     
+def add_startleampl(df):
+    '''
+    Finds the startle amplitude for each trial in a dataframe
+    '''
+    startleampl = []
+    for i, d in df.iterrows():
+        if d['cued']=='uncued':
+            startleampl_ = d['resp'][100:200]
+        elif d['cued']=='cued':
+            startleampl_ = d['resp'][200:300]
+        startleampl.append(startleampl_.max()-startleampl_.min())
+
+    df['startleampl'] = startleampl
     return df
-    
-def add_amplitude(df):
-    df['startleampl'] = find_amplitude(df)
-    return df
-    
-def find_amplitude(df):
-    resps = []
-    for i in df.index:
-        if df.cued[i]==0:
-            resp = df.resp[i][100:300]
-        elif df.cued[i]==1:
-            resp = df.resp[i][200:400]
-        resps.append(resp.max()-resp.min())
-    return resps
-
-def convert_to_pd_all():
-    fpaths = glob.glob(os.path.join(studydir, 'data', '*.txt'))
-    for fpath in fpaths:
-        convert_to_pd(fpath)
-
-def convert_to_pd(fpath):
-
-    outpath = fpath.replace('data', 'fileconversion').replace('.txt', '.h5')
-    if not os.path.exists(outpath):
-        print fpath
-        header = np.loadtxt(fpath, 'S', delimiter = '\t')[0]
-        startletrace_ix = len(header)
-        x = np.loadtxt(fpath, 'f', skiprows = 1)
-        freq = x[:, 0]
-        cued = x[:, 1]
-        ampl = x[:, 2]
-        holdtime = x[:, 4]
-        resp = [i for i in x[:, 5:]]
-        df = pd.DataFrame(dict(freq = freq, cued = cued, ampl = ampl, holdtime = holdtime, resp = resp))
-        d = pd.HDFStore(outpath)
-        d['df'] = df
-        d.close()
-
-def make_contact_sheet(df):
-
-	gp1 = df.groupby(('freq', 'cued'))
-	max_startle = gp1.resp.apply(calc_max_startle)
-	mean_resp = gp1.resp.apply(np.mean)
-	max_startle = mean_resp.apply(calc_max_startle)
-	mean_startle = max_startle.apply(np.mean)
-	err_startle = max_startle.apply(np.std)
-
-def calc_max_startle(gp):
-
-	for i in xrange(len(gp)):
-		x = gp[gp.index[i]][150:300]
-		amp = max(x) - min(x)
-
-	return np.mean(amp)
-	# startle_trace = startle_trace[150:300]
-	# maxstartle = max(startle_trace)
-	# minstartle = min(startle_trace)
-	# startle_amp = maxstartle-minstartle
-	
-	return startle_amp
 
 
-# # add KO and experiment type to file names
-# dates = dict(salicylate = ['5_30_2013', '6_3_2013', '6_4_2013'], control = ['5_23_2013', '5_31_2013', '6_1_2013'])
-# fpaths = glob.glob(os.path.join(studydir, 'data', '*.txt'))
-# for fpath in fpaths:
-#    absol, relat = os.path.split(fpath)
-#    animalID, da, mo, yr, ext = relat.split('_')
-#    for k, v in dates.iteritems():
-#        for v_ in v:
-#            if v_ in relat:
-#                exp = k
-               
-#    newrelat = '_'.join([animalID, 'KO', exp, da, mo, yr, ext])
-#    shutil.move(fpath, os.path.join(absol, newrelat))
-    
-    
-    
-    
-    
+def get_animalinfo(animalID, studydir):
+    fname = os.path.join(studydir, 'dobs.csv')
+    df = pd.read_csv(fname)
+    ncols = len(df.columns)
+    ix = df.animalID==animalID    
+    info = df[ix]
+    # try:
+    #     dob = misc.str2date(dob.values[0], delimiter = '/')
+    # except IndexError:
+    #     print '%s not found!' % animalID
+    #     return
+    return info
+
+def get_age(animalID, date = 'today'):
+    if date=='today':
+        date = datetime.datetime.now().date()
+    dob = get_animalinfo(animalID)['DOB']
+    return (date-dob).days
+
     
     
