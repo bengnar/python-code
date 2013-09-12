@@ -12,7 +12,6 @@
 #you should have the file0 in a folder and load in the matlab version of the file0 using pylab's
 #matlab loader
 
-import pylab
 from scipy.io import loadmat
 import numpy as np
 import os, shutil, glob, h5py, re
@@ -34,14 +33,14 @@ pen = dict(nchan=1, npenperblock=1, chanorder=None), \
 eeg = dict(nchan=2, npenperblock=2, chanorder=None)) # a single electrode per block
 
 # any information specific to a stimulus type
-stimulusinfo = dict(\
+stimulusinfos = dict(\
 RF = dict(nbins=333), \
 RR = dict(nbins=6000), \
 VOC = dict(nbins=20000))
 
 # studydir = '/Users/robert/Desktop/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_RR/Sessions'
-studydir = '/Volumes/BOB_SAGET/Fmr1_voc' 
+studydir = '/Volumes/BOB_SAGET/Fmr1_voc'
 # studydir = '/Volumes/BOB_SAGET/for_shaowen/'
 # studydir = '/Volumes/BOB_SAGET/Fmr1_KO_ising/Sessions/good/'
 # studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus'
@@ -102,13 +101,98 @@ def fileconvert(sessions, studydir = '/Volumes/BOB_SAGET/Fmr1_voc/'
 		#loop through penetrations
 		for blocknum, blockrep, blockID in blockinfo:
 
-			fileconvert_block(session, blocknum, blockID, blockrep, studydir = studydir, coords = coords, cfs = cfs, v = v, electrodeinfo = electrodeinfo[electrodetype], stimulusinfo = stimulusinfo[prefix[blockID[0]]])
+			matpath = os.path.join(studydir, 'Sessions', session, 'data', blockID + '.mat')
+			mat2h5(matpath)
+			fileconvert_block(session, blocknum, blockID, blockrep, studydir = studydir, coords = coords, cfs = cfs, v = v, electrodeinfo = electrodeinfo[electrodetype], stimulusinfo = stimulusinfos[prefix[blockID[0]]])
 
 		# end block loop
 
 	# end session loop
 
-def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coords = None, cfs = None, v = True, electrodeinfo = electrodeinfo['tungsten'], stimulusinfo = stimulusinfo['RF']):
+def mat2h5(matpath, stimulusinfo, onlylfp = False):
+
+	tempfile = loadmat(matpath) # load the .mat file0
+	Data0 = tempfile['Data'] # save the Data file0 to a temporary variable
+	# Data0 = tempfile['data'] # when converting already separated penetrations
+
+	nchan = Data0['trial'][0][0][0][0]['CH'][0].size
+	nbins = stimulusinfo['nbins']
+	print matpath
+
+	for cc in range(nchan):
+	
+		# number of time bins to include in the LFP array
+		nlfpsamp = 0
+		for tt, trial in enumerate(Data0['trial'][0][0][0]):
+
+			thislfpsamp = trial['LFP'].shape[1]
+			if thislfpsamp>nlfpsamp:
+				nlfpsamp = thislfpsamp
+		
+		ntrials = Data0['trial'][0][0][0].size # find number of trials
+		nstimID = Data0['trial'][0][0][0][0]['Epoch_Value'][0].size
+		
+		# initialze LFP, spike times, spike trials, spike waveform
+		lfp = np.ndarray((ntrials, nlfpsamp), dtype = 'float32')
+		if not onlylfp:
+			spktimes = np.ndarray(0)
+			spktrials = np.ndarray(0)
+			spkwaveform = np.ndarray((0, 22))
+			rast = np.zeros((ntrials, nbins)) 
+		# initialize frequency and attenuation IDs
+		stimID = np.ndarray((ntrials, nstimID), dtype = 'float32')
+
+		for tt in range(ntrials):
+			trial = Data0['trial'][0][0][0][tt]
+
+			thisstimID = np.float32(trial['Epoch_Value'][0])
+
+
+			# get the LFP for this trial and pad it with nans so it can fit in a matrix (since some of the trials have +/-1 data point for LFP)
+			lfpchannel = trial['LFP'][cc]
+			lfp[tt, :len(lfpchannel)] = lfpchannel
+			# lfpchannel = np.concatenate((lfpchannel, np.zeros(nlfpsamp - len(lfpchannel)) * np.nan))
+			# lfp = np.vstack((lfp, lfpchannel))
+
+			if not onlylfp:
+				spktime = trial['CH'][0][cc]['latency']
+				spktime = np.int32(spktime*1000)
+				if (spktime>nbins-1).any():
+					rm_ix = spktime>=nbins
+					print 'Spike time(s) too late!'
+					print spktime[rm_ix]
+					spktime = spktime[~rm_ix]
+					
+				rast[tt, spktime] = 1
+				if spktime.size > 0:
+					spktrials = np.append(spktrials, np.ones(spktime.size) * tt)
+					spkwaveform = np.concatenate((spkwaveform, trial['CH'][0][cc]['spkwaveform'].T), 0)
+				
+			# add to Epoch_Value
+			stimID[tt, :] = thisstimID
+
+				# end if valid ID
+
+		# # stoopid TDT shift (do for RF blocks of Fmr1_voc)
+		# stimID = stimID[1:, :]
+		# rast = rast[:-1, :]
+		# lfp = lfp[:-1, :]
+		# spkwaveform = spkwaveform[spktrials<(rast.shape[0]-1)]
+
+		remID = np.array([0., 0.])
+		if onlylfp:
+			trial_mask = RF.make_trial_mask(stimID, remID)
+		else:
+			spk_mask, trial_mask = RF.make_spk_and_trial_masks(spktrials, stimID, remID)
+			rast = rast[~trial_mask, :]
+		lfp = lfp[~trial_mask, :]
+		# if spktime.size > 0:
+		# 	spkwaveform = spkwaveform[~spk_mask]
+		stimID = stimID[~trial_mask, :]
+
+	return [stimID, rast, lfp]
+
+def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coords = None, cfs = None, v = True, electrodeinfo = electrodeinfo['tungsten'], stimulusinfo = stimulusinfos['RF']):
 	
 	chanorder = electrodeinfo['chanorder']
 	nchan = electrodeinfo['nchan']
@@ -119,7 +203,8 @@ def fileconvert_block(session, blocknum, blockID, blockrep, studydir = None, coo
 	if coords is None:
 		coords = load_coords(session)
 	
-	tempfile = loadmat(os.path.join(studydir, 'Sessions', session, 'data', blockID + '.mat')) # load the .mat file0
+	matpath = os.path.join(studydir, 'Sessions', session, 'data', blockID + '.mat')
+	tempfile = loadmat(matpath) # load the .mat file0
 	Data0 = tempfile['Data'] # save the Data file0 to a temporary variable
 	# Data0 = tempfile['data'] # when converting already separated penetrations
 
@@ -561,3 +646,37 @@ def unit_EEG(u_, Data0, blockID, nchan):
 	u_.create_dataset('blockID', data = blockID)
 	# add stimulus ID datasets to this stimset on this unit
 	u_.create_dataset('lfp', data = lfp, compression = 'gzip')
+
+def check_TDT_shift():
+	
+	fpaths = glob.glob('VOC*.h5')
+	for fpath in fpaths[1:5]:
+		print fpath
+		f = h5py.File(fpath, 'r')
+		stimparams = f['stimID'].value
+		rast = f['rast'].value
+		f.close()
+		for shift in range(-2, 3):
+			print shift
+			if shift<0:
+				stimparams_ = stimparams[:shift, :]
+				rast_ = rast[np.abs(shift):, :]
+			elif shift>0:
+				stimparams_ = stimparams[shift:, :]
+				rast_ = rast[:(-shift), :]
+			elif shift==0:
+				stimparams_ = stimparams
+				rast_ = rast
+			corrs1 = []; corrs2 = []
+			for i in range(1, 4):
+				rast_2 = rast_[stimparams_[:, 0]==i, :]
+				ntrials = rast_2.shape[0]
+				corr1 = []; corr2 = []
+				for j, k in itertools.product(range(ntrials), range(ntrials)):
+					if j!=k:
+						corr1.append(np.corrcoef(rast_2[j, :], rast_2[k, :])[0, 1])
+						corr2.append(Spikes.vR_dist(rast_2[j, :], rast_2[k, :]))
+				corrs1.append(np.mean(corr1))
+				corrs2.append(np.mean(corr2))
+			print corrs1; print corrs2
+

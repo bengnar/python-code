@@ -1111,24 +1111,6 @@ for animalpath in animalpaths:
 		d.close()
 
 	os.chdir('..')
-	
-
-'''Move individual files to folders named for the animal'''
-# studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/Gap'
-studydir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/thalidomide/Gap/data'
-saveddir = os.getcwd()
-os.chdir(studydir)
-fnames = glob.glob('*.txt')
-for fname in fnames:
-	animalID = fname.split('_')[0]
-	ix = p.search(animalID).start()
-	cagenum = animalID[ix:]
-	animal = animalID[:ix]
-	outdir = cagenum+animal
-	if not os.path.exists(outdir):
-		os.mkdir(outdir)
-	shutil.move(fname, os.path.join(outdir, fname))
-os.chdir(saveddir)
 
 
 dir1 = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior/incoming/xxx'
@@ -1176,10 +1158,41 @@ fpaths.sort()
 fig = plt.figure();
 for i, fpath in enumerate(fpaths):
 	df = Gap.txt2pd(fpath)
-	ax = fig.add_subplot(4, 3, i+1)
+	ax = fig.add_subplot(3, 3, i+1)
 	Gap.plot_startleampl(df, ax)
 	ax.set_ylim([0, 8])
 	ax.set_title(os.path.split(fpath)[1])
 	ax.set_xticklabels('')
 
 
+plt.close('all')
+ylim = (37.65, 37.85)
+xlim = (-122.6, -122.3)
+map_ = basemap.Basemap(resolution = 'h', projection='merc', \
+	llcrnrlat = ylim[0], urcrnrlat = ylim[1], \
+	llcrnrlon = xlim[0], urcrnrlon = xlim[1])
+map_.drawcoastlines()
+x, y = map_.makegrid(10, 10)
+map_.drawmeridians(x, labels = [0, 0, 0, 1])
+map_.drawparallels(y, labels = [1, 0, 0, 0])
+map_.fillcontinents(color = 'coral')
+# map_.drawcountries()
+plt.show()
+
+#Let's create a basemap of Europe
+	x1 = -20.
+	x2 = 40.
+	y1 = 32.
+	y2 = 64.
+	m = basemap.Basemap(resolution='h',projection='merc', llcrnrlat=y1,urcrnrlat=y2,llcrnrlon=x1,urcrnrlon=x2,lat_ts=(x1+x2)/2)
+	m.drawcountries(linewidth=0.5)
+	m.drawcoastlines(linewidth=0.5)
+m.drawparallels(np.arange(y1,y2,2.),labels=[1,0,0,0],color='black',dashes=[1,0],labelstyle='+/-',linewidth=0.2) # draw parallels
+m.drawmeridians(np.arange(x1,x2,2.),labels=[0,0,0,1],color='black',dashes=[1,0],labelstyle='+/-',linewidth=0.2) # draw meridians
+
+class Coordinate(object):
+	def __init__(self, x, y):
+		self.x = x
+		self.y = y
+	def __repr__(self):
+		return 'Coord: ' +str(self.__dict__)

@@ -1,4 +1,4 @@
-import os, glob
+import os, glob, re, shutil
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,20 +13,23 @@ def fileconvert_all(studydir):
     Stores the results in */Gap/fileconversion
     '''
 
-    # dobs = pd.read_csv(os.path.join(studydir, 'dobs.csv'))
     gapdetectiondir = os.path.join(studydir, 'gapdetection')
     if not os.path.exists(gapdetectiondir):
         os.mkdir(gapdetectiondir)
 
-    animalpaths = glob.glob(os.path.join(studydir, 'data', '[0-9]*'))
+    animalpaths = glob.glob(os.path.join(studydir, 'data', 'Gap', '[0-9]*'))
     for animalpath in animalpaths:
-        fpaths = glob.glob(os.path.join(animalpath, '[A-Za-z]*.txt'))
+        fpaths = glob.glob(os.path.join(animalpath, '*.txt'))
         for fpath in fpaths:
 
             absol, relat = os.path.split(fpath)
-            animalID, gen, condition, mo, da, yr, _ = relat.split('_')
+            if relat.startswith('_'):
+                animalID, gen, condition, mo, da, yr, _ = relat[1:].split('_')
+            else:
+                animalID, gen, condition, mo, da, yr, _ = relat.split('_')
 
             animalinfo = get_animalinfo(animalID, studydir)
+            group = animalinfo.group.values[0]
             dob_str = animalinfo.DOB.values[0]
 
             dob = misc.str2date(dob_str, delimiter = '/', format = 'MMDDYYYY')
@@ -44,14 +47,18 @@ def fileconvert_all(studydir):
             age = (sess_date - dob).days
             if hasattr(animalinfo, 'date1'):
                 postdate1 = (sess_date - date1).days
-            outpath = os.path.join(studydir, 'gapdetection', '%s.csv' % '_'.join((animalID, gen, condition, yr, mo, da)))
+
+            newrelat = '%s.csv' % '_'.join((animalID, gen, condition, yr, mo, da))
+            if relat.startswith('_'):
+                newrelat = '_' + newrelat
+            outpath = os.path.join(studydir, 'gapdetection', newrelat)
 
             if not os.path.exists(outpath):
                 gapratio = fileconvert(fpath)
                 if hasattr(animalinfo, 'date1'):
-                    df = pd.DataFrame(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition, sess = sess_str, age = age, postdate1 = postdate1))
+                    df = pd.DataFrame(dict(gapratio = gapratio, animalID = animalID, gen = gen, group = group, condition = condition, sess = sess_str, age = age, postdate1 = postdate1))
                 else:
-                    df = pd.DataFrame(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition, sess = sess_str, age = age))
+                    df = pd.DataFrame(dict(gapratio = gapratio, animalID = animalID, gen = gen, group = group, condition = condition, sess = sess_str, age = age))
                 df.to_csv(outpath)
 
 def fileconvert(fpath):
@@ -214,16 +221,13 @@ def add_startleampl(df):
 
 
 def get_animalinfo(animalID, studydir):
+
     fname = os.path.join(studydir, 'dobs.csv')
     df = pd.read_csv(fname)
     ncols = len(df.columns)
     ix = df.animalID==animalID    
     info = df[ix]
-    # try:
-    #     dob = misc.str2date(dob.values[0], delimiter = '/')
-    # except IndexError:
-    #     print '%s not found!' % animalID
-    #     return
+
     return info
 
 def get_age(animalID, date = 'today'):
@@ -232,5 +236,20 @@ def get_age(animalID, date = 'today'):
     dob = get_animalinfo(animalID)['DOB']
     return (date-dob).days
 
-    
-    
+def reverse_animalID(animalID):
+    p = re.compile('[0-9]')
+    ix = p.search(animalID).start()
+    cagenum = animalID[ix:]
+    animal = animalID[:ix]
+    return cagenum+animal
+
+def move_to_animal_folder():
+    '''Move individual files to folders named for the animal'''
+    fnames = glob.glob('*.txt')
+    for fname in fnames:
+        animalID = fname.split('_')[0]
+        outdir = reverse_animalID(animalID)
+        if not os.path.exists(outdir):
+            os.mkdir(outdir)
+        shutil.move(fname, os.path.join(outdir, fname))
+        

@@ -7,10 +7,10 @@ import matplotlib.pylab as plt
 import RF; reload(RF);
 
 	
-def vR_dist(spktimes_1, spktimes_2, nbins, tau = 0.03):
+def vR_dist(psth_1, psth_2, tau = 0.03):
 	
-	psth_1 = calc_psth(spktimes_1, nbins)
-	psth_2 = calc_psth(spktimes_2, nbins)
+	# psth_1 = calc_psth(spktimes_1, nbins)
+	# psth_2 = calc_psth(spktimes_2, nbins)
 	
 	psth_smoo_1 = exp_smoo(psth_1, tau = tau)
 	psth_smoo_2 = exp_smoo(psth_2, tau = tau)

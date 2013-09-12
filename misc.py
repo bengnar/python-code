@@ -9,6 +9,15 @@ import Tkinter
 import tkFileDialog
 import datetime
 
+def get_subplot_grid(n):
+
+	if n<4:
+		nrows = n; ncols = 1
+	else:
+		nrows = ncols = np.ceil(np.sqrt(n))
+
+	return nrows, ncols
+
 def str2date(s, delimiter = '_', format = 'MMDDYYYY'):
 	'''
 	Input:
@@ -16,10 +25,17 @@ def str2date(s, delimiter = '_', format = 'MMDDYYYY'):
 	Output:
 		date: datetime formatted date
 	'''
-	if format == 'MMDDYYYY':
-		mo, da, yr = s.split(delimiter)
-	elif format == 'YYYYMMDD':
-		yr, mo, da = s.split(delimiter)
+	if delimiter=='':
+		if format == 'YYYYMMDD':
+			yr = s[:4]; mo = s[4:6]; da = s[6:]
+	
+	else:
+		if format == 'MMDDYYYY':
+			mo, da, yr = s.split(delimiter)
+		elif format == 'YYYYMMDD':
+			yr, mo, da = s.split(delimiter)
+	
+
 	return datetime.date(int(yr), int(mo), int(da))
 
 def pd_sem(ds):
@@ -64,18 +80,18 @@ def samexaxis(ax, xlim = None):
 		
 	[a.set_xlim([minx, maxx]) for a in ax]
 	
-def sameyaxis(ax, xlim = None):
+def sameyaxis(ax, ylim = None):
 
 	minx = +np.inf
 	maxx = -np.inf
 	
-	if xlim is None:
+	if ylim is None:
 		for ax_ in ax:
-			xlim = ax_.get_xlim()
+			xlim = ax_.get_ylim()
 			minx = np.min([minx, xlim[0]])
 			maxx = np.max([maxx, xlim[1]])
 	else:
-		(minx, maxx) = xlim
+		(minx, maxx) = ylim
 		
 	[a.set_ylim([minx, maxx]) for a in ax]
 	
@@ -615,9 +631,6 @@ def facet_wrap(df, df_err = None, fig = None):
 		# pd_errorbar(df, df_err, ax = ax[-1])
 
 	sameyaxis(ax)
-
-
-
 
 
 
