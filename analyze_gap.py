@@ -20,6 +20,27 @@ def compare_condition_diffs_by_freq(df = None):
 	if df is None:
 		df = load_experiment()
 
+	df = df[df.freq<40000]
+	# select the final day's results as the control
+	df_pre = df[df.postdate1<0]
+	df_pre.groupby('animalID')
+	df_control = []
+	for animalID, df_ in df_pre.groupby('animalID'):
+		last_sess = df_.postdate1.max()
+		df_control.append(df_[df_.postdate1==last_sess])
+	df_control = pd.concat(df_control)
+	df_control.pivot('freq', 'animalID', 'gapratio').plot()
+
+	df_control2 = df_control.pivot('freq', 'animalID', 'gapratio')
+
+	df_manip = df[df.postdate1>0]
+	df_manip.pivot('freq', 'animalID', 'gapratio')
+	for (animalID, postdate), df_ in df_manip.groupby(('animalID', 'postdate1')):
+		
+		df_.gapratio-df_control2[animalID]
+		pass
+
+
 def compare_condition_diffs(df = None, control = 'preinjection'):
 
 	df = load_experiment()
