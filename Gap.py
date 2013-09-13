@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import datetime
 import misc; reload(misc);
+from collections import OrderedDict
 
 freqs = np.array([5, 7.1, 10, 14.1, 20, 28.3, 40])
 
@@ -29,10 +30,11 @@ def fileconvert_all(studydir):
                 animalID, gen, condition, mo, da, yr, _ = relat.split('_')
 
             animalinfo = get_animalinfo(animalID, studydir)
-            group = animalinfo.group.values[0]
+            # group = animalinfo.group.values[0]
             dob_str = animalinfo.DOB.values[0]
 
             dob = misc.str2date(dob_str, delimiter = '/', format = 'MMDDYYYY')
+            del animalinfo['DOB']
 
             if hasattr(animalinfo, 'date1'):
                 date1_str = animalinfo.date1.values[0]
@@ -55,10 +57,14 @@ def fileconvert_all(studydir):
 
             if not os.path.exists(outpath):
                 gapratio = fileconvert(fpath)
-                if hasattr(animalinfo, 'date1'):
-                    df = pd.DataFrame(dict(gapratio = gapratio, animalID = animalID, gen = gen, group = group, condition = condition, sess = sess_str, age = age, postdate1 = postdate1))
-                else:
-                    df = pd.DataFrame(dict(gapratio = gapratio, animalID = animalID, gen = gen, group = group, condition = condition, sess = sess_str, age = age))
+
+                d = OrderedDict()
+                d.update(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition, sess = sess_str, age = age))
+
+                for key, value in animalinfo.iteritems():
+                    d.update({key: value})
+
+                df = pd.DataFrame(d)
                 df.to_csv(outpath)
 
 def fileconvert(fpath):
@@ -227,6 +233,8 @@ def get_animalinfo(animalID, studydir):
     ncols = len(df.columns)
     ix = df.animalID==animalID    
     info = df[ix]
+    info.index = info.animalID
+    del info['animalID']
 
     return info
 
