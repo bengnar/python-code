@@ -18,10 +18,12 @@ def fileconvert_all(studydir):
     if not os.path.exists(gapdetectiondir):
         os.mkdir(gapdetectiondir)
 
+    # loop through all animals
     animalpaths = glob.glob(os.path.join(studydir, 'data', 'Gap', '[0-9]*'))
-    for animalpath in animalpaths:
+    for animalpath in animalpaths[:1]:
         fpaths = glob.glob(os.path.join(animalpath, '*.txt'))
-        for fpath in fpaths:
+        
+        for fpath in fpaths[:1]:
 
             absol, relat = os.path.split(fpath)
             if relat.startswith('_'):
@@ -29,43 +31,53 @@ def fileconvert_all(studydir):
             else:
                 animalID, gen, condition, mo, da, yr, _ = relat.split('_')
 
-            animalinfo = get_animalinfo(animalID, studydir)
-            # group = animalinfo.group.values[0]
-            dob_str = animalinfo.DOB.values[0]
-
-            dob = misc.str2date(dob_str, delimiter = '/', format = 'MMDDYYYY')
-            del animalinfo['DOB']
-
-            if hasattr(animalinfo, 'date1'):
-                date1_str = animalinfo.date1.values[0]
-                date1 = misc.str2date(date1_str, delimiter = '/', format = 'MMDDYYYY')
-
-            mo = '%2.2u' % int(mo)
-            da = '%2.2u' % int(da)
-            yr = '%4.4u' % int(yr)
-
-            sess_str = '_'.join((yr, mo, da))
-            sess_date = misc.str2date(sess_str, delimiter = '_', format = 'YYYYMMDD')
-            age = (sess_date - dob).days
-            if hasattr(animalinfo, 'date1'):
-                postdate1 = (sess_date - date1).days
-
             newrelat = '%s.csv' % '_'.join((animalID, gen, condition, yr, mo, da))
             if relat.startswith('_'):
                 newrelat = '_' + newrelat
             outpath = os.path.join(studydir, 'gapdetection', newrelat)
 
-            if not os.path.exists(outpath):
-                gapratio = fileconvert(fpath)
+            # skip if the file already exists
+            if os.path.exists(outpath): continue
 
-                d = OrderedDict()
-                d.update(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition, sess = sess_str, age = age))
+            # calculate gapratio
+            gapratio = fileconvert(fpath)
 
-                for key, value in animalinfo.iteritems():
-                    d.update({key: value})
+            # start building the dataframe dict
+            d = OrderedDict()
+            # add required fields (gapratio, animalID, genotype, condition, session date, age)
+            d.update(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition))
 
-                df = pd.DataFrame(d)
-                df.to_csv(outpath)
+            # load the animal DOB, group, etc. from the dobs.csv file
+            animalinfo = get_animalinfo(animalID, studydir)
+
+            # get the date of birth
+            dob_str = animalinfo.DOB.values[0]
+            dob = misc.str2date(dob_str, delimiter = '/', format = 'MMDDYYYY')
+            animalinfo['DOB'] = dob
+
+            # how old was the animal when this session was run?
+            sess_str = '_'.join((yr, mo, da))
+            sess_date = misc.str2date(sess_str, delimiter = '_', format = 'YYYYMMDD')
+            age = (sess_date - dob).days
+
+            d.update(dict(sess = sess_date, age = age))
+
+            # how many days was this session from each "date" column in the animalinfo?
+            dateinfo = animalinfo.filter(regex='date*')
+            d_postdate = OrderedDict()
+            for key, value in dateinfo.iteritems():
+                date = misc.str2date(value.values[0], delimiter='/', format='MMDDYYYY')
+                d_postdate.update({'post'+key: (date-dob).days})
+
+            d.update(d_postdate)
+
+            # add all supplementary animalinfo fields
+            for key, value in animalinfo.iteritems():
+                print key, value
+                d.update({key: value.values[0]})
+
+            df = pd.DataFrame(d)
+            df.to_csv(outpath)
 
 def fileconvert(fpath):
     '''
