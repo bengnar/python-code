@@ -79,6 +79,12 @@ def compare_condition_diffs(df = None, control = 'preinjection'):
 
 	fig.savefig(os.path.join(studydir, 'Analysis', 'compare_condition_diffs.png'))
 
+def compare_conditions_pairwise_by_freq(control = 'prenihl'):
+
+	df = load_experiment(onlygood=True)
+	postdate = df.filter(regexp='post*')
+	df_pre = df[postdate<0]
+
 def compare_conditions_pairwise(df = None, control = 'preinjection'):
 	'''
 	Performs a pairwise comparison between a control condition and several "manipulated"
@@ -122,8 +128,18 @@ def compare_conditions_pairwise(df = None, control = 'preinjection'):
 	
 	animalIDs = zip(*animalmeans.index)[0]
 
-	styles = dict(tnfa = dict(ls = '-', marker = '^', mfc = [0.2, 0.2, 0.2]), \
-		vehicle = dict(ls = '--', marker = 'o', mfc = 'w'))
+	styles = dict(tnfa=dict(ls='-', marker='^', mfc=[0.2, 0.2, 0.2]),
+		vehicle=dict(ls='--', marker='o', mfc='w'),
+		prenihl={'ls': '-', 'marker': '.', 'mfc': 'lightgray'},
+		postnihl={'ls': '--', 'marker': '.', 'mfc': 'darkgray'},
+		thalid1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		thalid2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		vehicle1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		vehicle2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		thalidwashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		thalidwashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		vehiclewashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		vehiclewashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'})
 
 	fig = plt.figure(figsize = (4, 8)); ax = fig.add_subplot(111)
 	
