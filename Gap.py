@@ -20,10 +20,10 @@ def fileconvert_all(studydir):
 
     # loop through all animals
     animalpaths = glob.glob(os.path.join(studydir, 'data', 'Gap', '[0-9]*'))
-    for animalpath in animalpaths[:1]:
+    for animalpath in animalpaths:
         fpaths = glob.glob(os.path.join(animalpath, '*.txt'))
         
-        for fpath in fpaths[:1]:
+        for fpath in fpaths:
 
             absol, relat = os.path.split(fpath)
             if relat.startswith('_'):
