@@ -40,7 +40,6 @@ def compare_condition_diffs_by_freq(df = None):
 		df_.gapratio-df_control2[animalID]
 		pass
 
-
 def compare_condition_diffs(df = None, control = 'preinjection'):
 
 	df = load_experiment()
@@ -80,7 +79,7 @@ def compare_condition_diffs(df = None, control = 'preinjection'):
 
 	fig.savefig(os.path.join(studydir, 'Analysis', 'compare_condition_diffs.png'))
 
-def compare_conditions_pairwise3(df = None, control = 'preinjection'):
+def compare_conditions_pairwise(df = None, control = 'preinjection'):
 	'''
 	Performs a pairwise comparison between a control condition and several "manipulated"
 	conditions where the manipulations were performed on DIFFERENT ANIMALS.
@@ -152,7 +151,7 @@ def compare_conditions_pairwise3(df = None, control = 'preinjection'):
 	ax.legend()
 
 	fig.subplots_adjust(left = 0.2)
-	figpath = os.path.join(studydir, 'Analysis', 'compare_conditions_pairwise3_%s.png' % control)
+	figpath = os.path.join(studydir, 'Analysis', 'compare_conditions_pairwise_%s.png' % control)
 	fig.savefig(figpath)
 
 def compare_conditions_by_postdate1():
@@ -177,8 +176,8 @@ def compare_conditions_by_postdate1():
 	y = sessgp.gapratio.apply(np.mean).unstack('condition')
 	yerr = sessgp.gapratio.apply(st.sem).unstack('condition')
 
-	colors = dict(tnfa = 'r', vehicle = 'b')
-	fig = plt.figure(figsize = (10, 8.5))
+	colors = dict(tnfa='r', vehicle='b')
+	fig = plt.figure(figsize=(10, 8.5))
 
 	for j, date in enumerate(udate):
 
@@ -189,10 +188,10 @@ def compare_conditions_by_postdate1():
 
 		x = range(len(y_.index))
 
-		ax.errorbar(x, y_pre, yerr = yerr_pre, color = 'k', ecolor = 'k', label = 'preinjection')
+		ax.errorbar(x, y_pre, yerr=yerr_pre, color='k', ecolor='k', label='preinjection')
 
 		for ((i, yc), (i, yerrc)) in zip(y_.iteritems(), yerr_.iteritems()):
-			ax.errorbar(x, yc, yerr = yerrc, color = colors[i], label = i)
+			ax.errorbar(x, yc, yerr=yerrc, color=colors[i], label=i)
 			ax.set_title('%u days post injection' % date)
 			ax.set_xticklabels((y_.index / 1000.).astype(int))
 			# ax.set_xlim([-1, len(x)])
@@ -202,7 +201,7 @@ def compare_conditions_by_postdate1():
 	figpath = os.path.join(studydir, 'Analysis', 'compare_postdate1.png')
 	fig.savefig(figpath)
 
-def compare_conditions_by_day(conditions = ('tnfa', 'vehicle')):
+def compare_conditions_by_day(conditions=('tnfa', 'vehicle')):
 
 	nconditions = len(conditions)
 	fig = plt.figure(figsize = (10, 8))
@@ -311,7 +310,7 @@ def single_subject_conditionmeans():
 		fig.savefig(figpath)
 		ax.cla();
 
-def single_subject_dailyresults(condition = 'all', cond_color = True):
+def single_subject_dailyresults(df=None, condition='all', cond_color=True):
 
 	if condition=='all':
 		cond_patt = ''
@@ -319,10 +318,9 @@ def single_subject_dailyresults(condition = 'all', cond_color = True):
 		cond_patt = '_'+condition+'_'
 	
 	if df is None:
-		df = load_experiment(onlygood = False)
+		df = load_experiment(onlygood=False)
 
 	animalIDs = np.unique(df.animalID).values
-	animalgp
 	for animalID in animalIDs:
 		fig = plt.figure(figsize = (6, 6));
 		ax = fig.add_subplot(111);
@@ -430,3 +428,7 @@ def analyze():
 	single_subject_conditionmeans()
 	single_subject_startleampl()
 	single_subject_dailyresults(cond_color = False)
+	df = load_experiment()
+	# useful for determining which of the initial sessions should be included
+	for key, df_ in df.groupby(('animalID', 'condition')):
+		analyze_gap.single_subject_dailyresults(df_, condition = key[1], cond_color = False)

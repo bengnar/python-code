@@ -73,7 +73,6 @@ def fileconvert_all(studydir):
 
             # add all supplementary animalinfo fields
             for key, value in animalinfo.iteritems():
-                print key, value
                 d.update({key: value.values[0]})
 
             df = pd.DataFrame(d)
