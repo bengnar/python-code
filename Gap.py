@@ -83,19 +83,6 @@ def fileconvert(fpath):
     '''
     Takes the text file output for one animal and converts it to a pandas formatted hdf5 file
     '''
-    # cueddict = {0:'uncued', 1:'cued'}
-
-    # print fpath
-    # header = np.loadtxt(fpath, 'S', delimiter = '\t')[0]
-    # startletrace_ix = len(header)
-    # x = np.loadtxt(fpath, 'f', skiprows = 1)
-    # freq = x[:, 0]
-    # cued = x[:, 1]
-    # cuedstr = map(lambda x: cueddict[x], cued)
-    # # ampl = x[:, 2]
-    # # holdtime = x[:, 4]
-    # resp = [i for i in x[:, 5:]]
-    # df = pd.DataFrame(dict(freq = freq, cued = cuedstr, resp = resp))
 
     df = txt2pd(fpath)
 
