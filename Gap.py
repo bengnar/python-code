@@ -67,7 +67,7 @@ def fileconvert_all(studydir):
             d_postdate = OrderedDict()
             for key, value in dateinfo.iteritems():
                 date = misc.str2date(value.values[0], delimiter='/', format='MMDDYYYY')
-                d_postdate.update({'post'+key: (date-dob).days})
+                d_postdate.update({'post'+key: (sess_date-date).days})
 
             d.update(d_postdate)
 

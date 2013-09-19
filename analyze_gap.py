@@ -6,6 +6,7 @@ import Gap; reload(Gap)
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import misc
+import pdb
 
 color_cycle = mpl.rcParams['axes.color_cycle']
 colors = dict(control = 'k', salicylate = 'r', prenihl = 'k', postnihl = 'g', postnihl5d = 'y', thalid = 'r', vehicle = 'b', \
@@ -82,8 +83,27 @@ def compare_condition_diffs(df = None, control = 'preinjection'):
 def compare_conditions_pairwise_by_freq(control = 'prenihl'):
 
 	df = load_experiment(onlygood=True)
-	postdate = df.filter(regexp='post*')
-	df_pre = df[postdate<0]
+	df = df[df.freq<40000]
+	postdate = df.filter(regex='post*').values
+	df_control = df[postdate<0]
+	freqgp_control = df_control.groupby(('animalID', 'freq'))
+	freqmean_control = freqgp_control.agg({'gapratio': np.mean})
+
+	df_manip = df[postdate>0]
+	freqgp_manip = df_manip.groupby(('animalID', 'condition', 'freq'))
+	freqmean_manip = freqgp_manip.agg({'gapratio': np.mean})
+	
+	gapdiff = []
+	for (animalID, condition, freq), df_ in freqmean_manip.iterrows():
+		gapdiff.append((df_['gapratio'] - freqmean_control.ix[(animalID, freq)]).values[0])
+	freqmean_manip['gapdiff'] = gapdiff
+
+	ufreqs = np.unique(df.freq).values
+	x = np.arange(len(ufreqs))
+	condgp = freqmean_manip.unstack('freq').groupby(level='condition')
+	condmean = condgp.agg()
+	for cond, df_ in condgp:
+		plot(x, df_['gapdiff'])
 
 def compare_conditions_pairwise(df = None, control = 'preinjection'):
 	'''
@@ -245,6 +265,7 @@ def compare_conditions_by_day(conditions=('tnfa', 'vehicle')):
 	figpath = os.path.join(studydir, 'Analysis', 'compare_conditions_by_day_%s.png' % '_'.join(conditions))
 	fig.savefig(figpath)
 
+	return fig
 
 def compare_conditions(df = None, conditions = None, ax = None):
 
@@ -277,8 +298,8 @@ def compare_conditions(df = None, conditions = None, ax = None):
 	ax.set_xlabel('Frequency (kHz)')
 	ax.set_ylabel('Gap ratio')
 	ax.set_ylim([0, 1.5])
-	ax.axhline([1.0], color = 'r', ls = '--')
-	ax.legend()
+	ax.axhline([1.0], color='r', ls='--')
+	ax.legend(loc='best')
 	ax.set_title('Start age: %u' % df.age.min())
 
 	figdir = os.path.join(studydir, 'Analysis')
@@ -287,6 +308,7 @@ def compare_conditions(df = None, conditions = None, ax = None):
 	figpath = os.path.join(figdir, 'compare_conditions.png')
 	fig.savefig(figpath)
 
+	return fig
 
 def single_subject_conditionmeans():
 
@@ -325,6 +347,8 @@ def single_subject_conditionmeans():
 		figpath = os.path.join(figdir, 'conditionmeans_%s.png' % animalID)
 		fig.savefig(figpath)
 		ax.cla();
+
+	return fig
 
 def single_subject_dailyresults(df=None, condition='all', cond_color=True):
 
@@ -390,6 +414,7 @@ def single_subject_startleampl():
 		fig.savefig(figpath)
 		fig.clf();
 
+	return fig
 
 def load_experiment(conditions = None, onlygood = True):
 
@@ -437,14 +462,17 @@ def select_study(studyID, gen):
 
 def analyze():
 	try:
-		compare_conditions()
-		compare_conditions_by_day()
+		fig = compare_conditions()
+		plt.close(fig)
+		fig = compare_conditions_by_day()
+		plt.close(fig)
 	except:
 		pass
-	single_subject_conditionmeans()
-	single_subject_startleampl()
+	fig = single_subject_conditionmeans()
+	plt.close(fig)
+	fig = single_subject_startleampl(); plt.close(fig)
 	single_subject_dailyresults(cond_color = False)
 	df = load_experiment()
 	# useful for determining which of the initial sessions should be included
 	for key, df_ in df.groupby(('animalID', 'condition')):
-		analyze_gap.single_subject_dailyresults(df_, condition = key[1], cond_color = False)
+		single_subject_dailyresults(df_, condition = key[1], cond_color = False)

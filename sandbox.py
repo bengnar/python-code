@@ -1196,3 +1196,47 @@ class Coordinate(object):
 		self.y = y
 	def __repr__(self):
 		return 'Coord: ' +str(self.__dict__)
+
+
+ix = np.vstack((df.condition=='postnihl', df.condition=='prenihl',
+	df.condition=='thalid1', df.condition=='thalidwashout1',
+	df.condition=='vehicle1', df.condition=='vehiclewashout1')).any(0)
+df = df[ix]
+
+
+
+		
+
+
+
+
+
+
+		
+
+
+
+
+
+
+		
+
+
+
+
+
+
+		
+
+
+
+
+
+
+		
+
+
+
+
+
+
