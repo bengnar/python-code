@@ -14,8 +14,60 @@ colors = dict(control = 'k', salicylate = 'r', prenihl = 'k', postnihl = 'g', po
 lss = dict(control = '-', salicylate = '--', prenihl = '-', postnihl = '--', postnihl5d = '--', thalid = '--', vehicle = '--', \
 	preinjection = '-', preinjectiontnfa = '-', preinjectionvehicle = '-', pre = '-', tnfa = '--', thalidwashout = '--', vehiclewashout = '--')
 
-global studydir, animalIDs
-basedir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior'
+
+
+class GapAnalysis(object):
+
+	def __init__(self, studyID=None, cageID=None):
+
+		# self.basedir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior'
+		self.basedir = '/Users/robert/Desktop'
+		if (studyID is not None) and (cageID is not None):
+			self.select_study(studyID, cageID)
+
+			
+	def load_experiment(conditions = None, onlygood = True):
+
+		if conditions is None:
+			cond_patts = ['']
+		else:
+			if type(conditions) is str:
+				conditions = [conditions]
+
+			cond_patts = []
+			for condition in conditions:	
+				cond_patts.append('_'+condition+'_')
+
+		fnames = []
+		for cond_patt in cond_patts:
+			if onlygood:
+				patt = os.path.join(studydir, 'gapdetection', '[A-Za-z]*%s*' % cond_patt)
+			else:
+				patt = os.path.join(studydir, 'gapdetection', '*%s*' % cond_patt)
+			fnames.extend(glob.glob(patt))
+
+		dfs = []
+		if len(fnames)==0:
+			print 'No files found with pattern\n%s' % patt
+		else:
+			for fname in fnames:
+				df_ = pd.read_csv(fname)
+				dfs.append(df_)
+			df = pd.concat(dfs)
+			return df
+
+
+	def select_study(self, studyID, cageID):
+
+		studydir = os.path.join(self.basedir, studyID, cageID)
+		animalIDs = pd.read_csv(os.path.join(studydir, 'dobs.csv'))['animalID'] 
+		animalIDs = [i for i in animalIDs if i[0]!='_']
+		
+		self.animalIDs = animalIDs
+		self.studydir = studydir
+		self.studyID = studyID
+		self.cageID = cageID
+
 
 def compare_condition_diffs_by_freq(df = None):
 	if df is None:
@@ -416,36 +468,6 @@ def single_subject_startleampl():
 
 	return fig
 
-def load_experiment(conditions = None, onlygood = True):
-
-	if conditions is None:
-		cond_patts = ['']
-	else:
-		if type(conditions) is str:
-			conditions = [conditions]
-
-		cond_patts = []
-		for condition in conditions:	
-			cond_patts.append('_'+condition+'_')
-
-	fnames = []
-	for cond_patt in cond_patts:
-		if onlygood:
-			patt = os.path.join(studydir, 'gapdetection', '[A-Za-z]*%s*' % cond_patt)
-		else:
-			patt = os.path.join(studydir, 'gapdetection', '*%s*' % cond_patt)
-		fnames.extend(glob.glob(patt))
-
-	dfs = []
-	if len(fnames)==0:
-		print 'No files found with pattern\n%s' % patt
-	else:
-		for fname in fnames:
-			df_ = pd.read_csv(fname)
-			dfs.append(df_)
-		df = pd.concat(dfs)
-		return df
-
 def format_axis(ax):
 	ax.set_xlabel('Frequency (kHz)')
 	ax.set_ylabel('Gap ratio')
@@ -453,12 +475,7 @@ def format_axis(ax):
 	ax.axhline([1.0], color = 'r', ls = '--')
 	# ax.legend()
 
-def select_study(studyID, gen):
-	global studydir, animalIDs
-	studydir = os.path.join(basedir, studyID, gen)
-	animalIDs = pd.read_csv(os.path.join(studydir, 'dobs.csv'))['animalID'] 
-	animalIDs = [i for i in animalIDs if i[0]!='_']
-	return studydir
+
 
 def analyze():
 	try:
