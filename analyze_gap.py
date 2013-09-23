@@ -22,8 +22,11 @@ class GapAnalysis(object):
 
 		# self.basedir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior'
 		self.basedir = '/Users/robert/Desktop'
+		studydir = os.path.join(self.basedir, studyID, cageID)
 		if (studyID is not None) and (cageID is not None):
 			self.select_study(studyID, cageID)
+
+		self.load_experiment()
 
 	def load_experiment(self, conditions = None, onlygood = True):
 
@@ -54,8 +57,8 @@ class GapAnalysis(object):
 				dfs.append(df_)
 			df = pd.concat(dfs)
 
+			df = df[np.vstack((5000<df.freq, df.freq<40000)).all(0)]
 			self.df = df
-
 
 	def select_study(self, studyID, cageID):
 
@@ -70,10 +73,8 @@ class GapAnalysis(object):
 
 
 	def compare_condition_diffs_by_freq(self):
-		if df is None:
-			df = load_experiment()
 
-		df = df[df.freq<40000]
+		df = self.df
 		# select the final day's results as the control
 		df_pre = df[df.postdate1<0]
 		df_pre.groupby('animalID')
@@ -95,7 +96,6 @@ class GapAnalysis(object):
 
 	def compare_condition_diffs(self, control = 'preinjection'):
 
-		df = load_experiment()
 		df_control = df[df.condition==control]
 		animalgp_control = df_control.groupby(('animalID', 'condition'))
 		animalmeans_control = animalgp_control.agg(dict(gapratio = np.mean))
@@ -134,7 +134,7 @@ class GapAnalysis(object):
 
 	def compare_conditions_pairwise_by_freq(self, control = 'prenihl'):
 
-		df = load_experiment(onlygood=True)
+		df = self.df
 		df = df[df.freq<40000]
 		postdate = df.filter(regex='post*').values
 		df_control = df[postdate<0]
@@ -165,8 +165,8 @@ class GapAnalysis(object):
 		This script plots the paired pre-post difference for each animal, and the manipulation
 		group is indicated by different marker type/line styles
 		'''
-		if df is None:
-			df = load_experiment()
+
+		df = self.df
 		# remove below 5k and 40k
 		df = df[np.vstack((5000<df.freq, df.freq<40000)).all(0)]
 		ucond = np.unique(df.condition).values
@@ -244,8 +244,8 @@ class GapAnalysis(object):
 
 	def compare_conditions_by_postdate1(self):
 
-		df = load_experiment()
-		df = df[df.freq<40000]
+		df = self.df
+
 		df_pre = df[df.postdate1<0]
 		df = df[df.postdate1>0]
 		df['postdate1'][df.postdate1>7] = 7
@@ -283,7 +283,7 @@ class GapAnalysis(object):
 				ax.set_title('%u days post injection' % date)
 				ax.set_xticklabels((y_.index / 1000.).astype(int))
 				# ax.set_xlim([-1, len(x)])
-				format_axis(ax)
+				self.format_axis(ax)
 
 		ax.legend()
 		figpath = os.path.join(studydir, 'Analysis', 'compare_postdate1.png')
@@ -295,7 +295,7 @@ class GapAnalysis(object):
 		fig = plt.figure(figsize = (10, 8))
 
 		for k, condition in enumerate(conditions):
-			df = load_experiment(condition)
+			df = self.df[self.df.condition==condition]
 
 			ufreqs = np.unique(df.freq).values
 			x = range(len(ufreqs))
@@ -312,7 +312,7 @@ class GapAnalysis(object):
 			ax.set_xlim([0, len(x)])
 			ax.set_xticklabels(np.int32(ufreqs/1000))
 			ax.set_xlabel('Frequency (kHz)')
-			format_axis(ax)
+			self.format_axis(ax)
 
 		figpath = os.path.join(studydir, 'Analysis', 'compare_conditions_by_day_%s.png' % '_'.join(conditions))
 		fig.savefig(figpath)
@@ -321,13 +321,9 @@ class GapAnalysis(object):
 
 	def compare_conditions(self, conditions = None, ax = None):
 
-		if df is None:
-			df = load_experiment(conditions = conditions)
+		df = self.df
 
-		# df_pre = pd.concat((df[df.condition=='postnihl'], df[df.condition=='prenihl']))
-		# ix = ['1' in i for i in df.condition]
-		# df_ = df[ix]
-		# df = pd.concat((df_pre, df_))
+
 		df['condition'] = [filter(lambda x: x.isalpha(), i) for i in df.condition]
 		animalgp = df.groupby(('animalID', 'condition', 'freq'))
 		animaldf = animalgp.agg(dict(gapratio = np.mean))
@@ -366,18 +362,12 @@ class GapAnalysis(object):
 
 		fig = plt.figure(figsize = (10, 8));
 		ax = fig.add_subplot(111);
-		figdir = os.path.join(studydir, 'Analysis')
+		figdir = os.path.join(self.studydir, 'Analysis')
 		if not os.path.exists(figdir):
 			os.mkdir(figdir)
-		for animalID in animalIDs:
+		for animalID in self.animalIDs:
 
-			fpaths = glob.glob(os.path.join(studydir, 'gapdetection', '%s*.csv' % animalID))
-			dfs = []
-			for fpath in fpaths:
-				df_ = pd.read_csv(fpath)
-				dfs.append(df_)
-			df = pd.concat(dfs)
-
+			df = self.df[self.df.animalID==animalID]
 			condgp = df.groupby(('condition', 'freq'))
 
 			ufreqs = np.unique(df.freq).values
@@ -405,27 +395,15 @@ class GapAnalysis(object):
 	def single_subject_dailyresults(self, condition='all', cond_color=True):
 
 		if condition=='all':
-			cond_patt = ''
+			conddf = self.df
 		else:
-			cond_patt = '_'+condition+'_'
-		
-		if df is None:
-			df = load_experiment(onlygood=False)
+			raise NotImplementedError
 
-		animalIDs = np.unique(df.animalID).values
-		for animalID in animalIDs:
+		for animalID in self.animalIDs:
 			fig = plt.figure(figsize = (6, 6));
 			ax = fig.add_subplot(111);
-			fpaths = glob.glob(os.path.join(studydir, 'gapdetection', '%s*%s*.csv' % (animalID, cond_patt)))
-			dfs = []
-			for fpath in fpaths:
-				df_ = pd.read_csv(fpath)
-				dfs.append(df_)
-			try:
-				df = pd.concat(dfs)
-			except:
-				continue
-			df = df[df.freq<40000]
+
+			df = conddf[conddf.animalID==animalID]
 
 			ufreqs = np.unique(df.freq).values
 			x = range(len(ufreqs))
@@ -442,18 +420,18 @@ class GapAnalysis(object):
 			ax.set_xticks(x)
 			ax.set_xticklabels(ufreqs)
 			ax.legend(loc = 'upper left')
-			format_axis(ax)
+			self.format_axis(ax)
 
-			figpath = os.path.join(studydir, 'Analysis', 'dailyresults_%s_%s.png' % (condition, animalID))
+			figpath = os.path.join(self.studydir, 'Analysis', 'dailyresults_%s_%s.png' % (condition, animalID))
 			fig.savefig(figpath)
 			# ax.cla();
 
 	def single_subject_startleampl(self):
 
 		fig = plt.figure()
-		animalIDs = pd.read_csv(os.path.join(studydir, 'dobs.csv'))['animalID'].values
+		animalIDs = pd.read_csv(os.path.join(self.studydir, 'dobs.csv'))['animalID'].values
 		for animalID in animalIDs:
-			fnames = glob.glob(os.path.join(studydir, 'data', 'Gap', Gap.reverse_animalID(animalID), '*.txt'))
+			fnames = glob.glob(os.path.join(self.studydir, 'data', 'Gap', Gap.reverse_animalID(animalID), '*.txt'))
 			nfnames = len(fnames)
 			nrows, ncols = misc.get_subplot_grid(nfnames)
 			for i, fname in enumerate(fnames):
@@ -462,21 +440,19 @@ class GapAnalysis(object):
 				Gap.plot_startleampl(df, ax)
 				ax.set_ylim([0, 8])
 				ax.set_title(os.path.split(fname)[1])
-			figpath = os.path.join(studydir, 'Analysis', 'startleampl_%s.png' % animalID)
+			figpath = os.path.join(self.studydir, 'Analysis', 'startleampl_%s.png' % animalID)
 			fig.savefig(figpath)
 			fig.clf();
 
 		return fig
 
-	def format_axis(ax):
+	def format_axis(self, ax):
 		
 		ax.set_xlabel('Frequency (kHz)')
 		ax.set_ylabel('Gap ratio')
 		ax.set_ylim([0, 1.5])
 		ax.axhline([1.0], color = 'r', ls = '--')
 		# ax.legend()
-
-
 
 	def analyze(self):
 
@@ -491,7 +467,7 @@ class GapAnalysis(object):
 		plt.close(fig)
 		fig = self.single_subject_startleampl(); plt.close(fig)
 		self.single_subject_dailyresults(cond_color = False)
-		df = self.load_experiment()
+		
 		# useful for determining which of the initial sessions should be included
-		for key, df_ in df.groupby(('animalID', 'condition')):
+		for key, df_ in self.df.groupby(('animalID', 'condition')):
 			self.single_subject_dailyresults(df_, condition = key[1], cond_color = False)
