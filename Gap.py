@@ -261,6 +261,7 @@ def move_to_animal_folder():
 
 def fileconvert_processed(studydir):
     
+    freqs = [5000, 7071, 10000, 14142, 20000, 28284]
     gapdetectiondir = os.path.join(studydir, 'gapdetection')
     if not os.path.exists(gapdetectiondir):
         os.mkdir(gapdetectiondir)
@@ -300,7 +301,7 @@ def fileconvert_processed(studydir):
                 # start building the dataframe dict
                 d = OrderedDict()
                 # add required fields (gapratio, animalID, genotype, condition, session date, age)
-                d.update(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition))
+                d.update(dict(freq=freqs, gapratio=gapratio, animalID=animalID, gen=gen, condition=condition))
 
                 # load the animal DOB, group, etc. from the dobs.csv file
                 animalinfo = get_animalinfo(animalID, studydir)
