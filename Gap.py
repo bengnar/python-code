@@ -258,4 +258,79 @@ def move_to_animal_folder():
         if not os.path.exists(outdir):
             os.mkdir(outdir)
         shutil.move(fname, os.path.join(outdir, fname))
+
+def fileconvert_processed(studydir):
+    
+    gapdetectiondir = os.path.join(studydir, 'gapdetection')
+    if not os.path.exists(gapdetectiondir):
+        os.mkdir(gapdetectiondir)
+
+    cagepaths = glob.glob(os.path.join(studydir, 'data', 'Gap', '[0-9]*'))
+
+    dobs = pd.read_csv(os.path.join(studydir, 'dobs.csv'))
+    for cagepath in cagepaths:
+
+        absol, cageID = os.path.split(cagepath)
+        animalIDs = [i for i in dobs.animalID if cageID in i]
+        fpaths = glob.glob(os.path.join(cagepath, '*.txt'))
+        
+        for fpath in fpaths:
+
+            df = pd.read_csv(fpath, usecols=range(6), sep='\t', header=None, nrows=len(animalIDs))
+            df.index = animalIDs
+
+            absol, relat = os.path.split(fpath)
+            if relat.startswith('_'):
+                _, gen, condition, mo, da, yr, _ = relat[1:].split('_')
+            else:
+                _, gen, condition, mo, da, yr, _ = relat.split('_')
+
+            for animalID in animalIDs:
+
+                newrelat = '%s.csv' % '_'.join((animalID, gen, condition, yr, mo, da))
+                if relat.startswith('_'):
+                    newrelat = '_' + newrelat
+                outpath = os.path.join(studydir, 'gapdetection', newrelat)
+
+                # skip if the file already exists
+                if os.path.exists(outpath): continue
+
+                gapratio = df.ix[animalID].values
+
+                # start building the dataframe dict
+                d = OrderedDict()
+                # add required fields (gapratio, animalID, genotype, condition, session date, age)
+                d.update(dict(gapratio = gapratio, animalID = animalID, gen = gen, condition = condition))
+
+                # load the animal DOB, group, etc. from the dobs.csv file
+                animalinfo = get_animalinfo(animalID, studydir)
+
+                # get the date of birth
+                dob_str = animalinfo.DOB.values[0]
+                dob = misc.str2date(dob_str, delimiter = '/', format = 'MMDDYYYY')
+                animalinfo['DOB'] = dob
+
+                # how old was the animal when this session was run?
+                sess_str = '_'.join((yr, mo, da))
+                sess_date = misc.str2date(sess_str, delimiter = '_', format = 'YYYYMMDD')
+                age = (sess_date - dob).days
+
+                d.update(dict(sess = sess_date, age = age))
+
+                # how many days was this session from each "date" column in the animalinfo?
+                dateinfo = animalinfo.filter(regex='date*')
+                d_postdate = OrderedDict()
+                for key, value in dateinfo.iteritems():
+                    date = misc.str2date(value.values[0], delimiter='/', format='MMDDYYYY')
+                    d_postdate.update({'post'+key: (sess_date-date).days})
+
+                d.update(d_postdate)
+
+                # add all supplementary animalinfo fields
+                for key, value in animalinfo.iteritems():
+                    d.update({key: value.values[0]})
+
+                pd.DataFrame(d).to_csv(outpath)
+
+
         
