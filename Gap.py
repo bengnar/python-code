@@ -257,7 +257,10 @@ def move_to_animal_folder():
         outdir = reverse_animalID(animalID)
         if not os.path.exists(outdir):
             os.mkdir(outdir)
-        shutil.move(fname, os.path.join(outdir, fname))
+        if os.path.exists(os.path.join(outdir, fname)):
+            print '%s already exists.' % os.path.join(outdir, fname)
+        else:
+            shutil.move(fname, os.path.join(outdir, fname))
 
 def fileconvert_processed(studydir):
     

@@ -20,8 +20,8 @@ class GapAnalysis(object):
 
 	def __init__(self, studyID=None, cageID=None):
 
-		# self.basedir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior'
-		self.basedir = '/Users/robert/Desktop'
+		self.basedir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior'
+		# self.basedir = '/Users/robert/Desktop'
 		studydir = os.path.join(self.basedir, studyID, cageID)
 		if (studyID is not None) and (cageID is not None):
 			self.select_study(studyID, cageID)
@@ -29,7 +29,9 @@ class GapAnalysis(object):
 		self.load_experiment()
 
 	def load_experiment(self, conditions = None, onlygood = True):
+		'''
 
+		'''
 		if conditions is None:
 			cond_patts = ['']
 		else:
@@ -456,18 +458,18 @@ class GapAnalysis(object):
 
 	def analyze(self):
 
-		try:
-			fig = self.compare_conditions()
-			plt.close(fig)
-			fig = self.compare_conditions_by_day()
-			plt.close(fig)
-		except:
-			pass
-		fig = self.single_subject_conditionmeans()
-		plt.close(fig)
-		fig = self.single_subject_startleampl(); plt.close(fig)
-		self.single_subject_dailyresults(cond_color = False)
+		# try:
+		# 	fig = self.compare_conditions()
+		# 	plt.close(fig)
+		# 	fig = self.compare_conditions_by_day()
+		# 	plt.close(fig)
+		# except:
+		# 	pass
+		# fig = self.single_subject_conditionmeans()
+		# plt.close(fig)
+		# fig = self.single_subject_startleampl(); plt.close(fig)
+		# self.single_subject_dailyresults(cond_color = False)
 		
 		# useful for determining which of the initial sessions should be included
 		for key, df_ in self.df.groupby(('animalID', 'condition')):
-			self.single_subject_dailyresults(df_, condition = key[1], cond_color = False)
+			self.single_subject_dailyresults(condition = key[1], cond_color = False)
