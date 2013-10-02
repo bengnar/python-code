@@ -137,7 +137,6 @@ class GapAnalysis(object):
 	def compare_conditions_pairwise_by_freq(self, control = 'prenihl'):
 
 		df = self.df
-		df = df[df.freq<40000]
 		postdate = df.filter(regex='post*').values
 		df_control = df[postdate<0]
 		freqgp_control = df_control.groupby(('animalID', 'freq'))
@@ -170,7 +169,6 @@ class GapAnalysis(object):
 
 		df = self.df
 		# remove below 5k and 40k
-		df = df[np.vstack((5000<df.freq, df.freq<40000)).all(0)]
 		ucond = np.unique(df.condition).values
 		ncond = len(ucond)
 
@@ -241,7 +239,7 @@ class GapAnalysis(object):
 		ax.legend()
 
 		fig.subplots_adjust(left = 0.2)
-		figpath = os.path.join(studydir, 'Analysis', 'compare_conditions_pairwise_%s.png' % control)
+		figpath = os.path.join(self.studydir, 'Analysis', 'compare_conditions_pairwise_%s.png' % control)
 		fig.savefig(figpath)
 
 	def compare_conditions_by_postdate1(self):
@@ -399,13 +397,15 @@ class GapAnalysis(object):
 		if condition=='all':
 			conddf = self.df
 		else:
-			raise NotImplementedError
+			conddf = self.df[self.df.condition==condition]
 
+		fig = plt.figure(figsize = (6, 6));
+		ax = fig.add_subplot(111);
 		for animalID in self.animalIDs:
-			fig = plt.figure(figsize = (6, 6));
-			ax = fig.add_subplot(111);
-
+			
 			df = conddf[conddf.animalID==animalID]
+
+			if len(df)==0: continue
 
 			ufreqs = np.unique(df.freq).values
 			x = range(len(ufreqs))
@@ -426,7 +426,7 @@ class GapAnalysis(object):
 
 			figpath = os.path.join(self.studydir, 'Analysis', 'dailyresults_%s_%s.png' % (condition, animalID))
 			fig.savefig(figpath)
-			# ax.cla();
+			ax.cla();
 
 	def single_subject_startleampl(self):
 
@@ -453,7 +453,7 @@ class GapAnalysis(object):
 		ax.set_xlabel('Frequency (kHz)')
 		ax.set_ylabel('Gap ratio')
 		ax.set_ylim([0, 1.5])
-		ax.axhline([1.0], color = 'r', ls = '--')
+		ax.axhline([1.0], color='r', ls='--')
 		# ax.legend()
 
 	def analyze(self):
@@ -471,5 +471,7 @@ class GapAnalysis(object):
 		# self.single_subject_dailyresults(cond_color = False)
 		
 		# useful for determining which of the initial sessions should be included
-		for key, df_ in self.df.groupby(('animalID', 'condition')):
-			self.single_subject_dailyresults(condition = key[1], cond_color = False)
+		conditions = np.unique(self.df.condition).values
+		for condition in conditions:
+			self.single_subject_dailyresults(condition=condition, cond_color=False)
+
