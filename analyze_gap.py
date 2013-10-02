@@ -183,7 +183,7 @@ class GapAnalysis(object):
 		CONDITION-WISE (COMBINE ANIMALS)
 		'''
 		# make animal/condition groups
-		animalgp = df.groupby(('animalID', 'condition'))
+		animalgp = df.groupby(('animalID', 'condition', 'freq'))
 		# take means of gap performance for those groups
 		animalmeans = animalgp.agg(dict(gapratio = np.mean))
 
