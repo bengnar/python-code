@@ -137,26 +137,53 @@ class GapAnalysis(object):
 	def compare_conditions_pairwise_by_freq(self, control = 'prenihl'):
 
 		df = self.df
-		postdate = df.filter(regex='post*').values
-		df_control = df[postdate<0]
-		freqgp_control = df_control.groupby(('animalID', 'freq'))
-		freqmean_control = freqgp_control.agg({'gapratio': np.mean})
 
-		df_manip = df[postdate>0]
-		freqgp_manip = df_manip.groupby(('animalID', 'condition', 'freq'))
-		freqmean_manip = freqgp_manip.agg({'gapratio': np.mean})
+		ucond = np.unique(df.condition).values
+		ncond = len(ucond)
+
+		# make animal/condition/freq groups
+		animalgp = df.groupby(('animalID', 'condition', 'freq'))
+		# take means of gap performance for those groups
+		animalmeans = animalgp.agg(dict(gapratio = np.mean))
+
+		# put the control and manipulation columns side-by-side
+		condstack = animalmeans.unstack('condition')
 		
-		gapdiff = []
-		for (animalID, condition, freq), df_ in freqmean_manip.iterrows():
-			gapdiff.append((df_['gapratio'] - freqmean_control.ix[(animalID, freq)]).values[0])
-		freqmean_manip['gapdiff'] = gapdiff
+		# add a column indicating which condition this animal is
+		animalcondition = []
+		for key, value in condstack.iterrows():
+			if not pd.isnull(value['gapratio']['tnfa']):
+				animalcondition.append('tnfa')
+			else:
+				animalcondition.append('vehicle')
+		condstack['animalcondition'] = animalcondition
 
-		ufreqs = np.unique(df.freq).values
-		x = np.arange(len(ufreqs))
-		condgp = freqmean_manip.unstack('freq').groupby(level='condition')
-		condmean = condgp.agg()
-		for cond, df_ in condgp:
-			plot(x, df_['gapdiff'])
+		# make a column that is the result after manipulation
+		# (combines multiple columns for each manipulation)
+		# subtract the control from the manipulation values (for each frequency)
+		manip = condstack.gapratio.vehicle.copy()
+		manip.update(condstack.gapratio.tnfa)
+		condstack['manip'] = manip
+		condstack['manipdiff'] = condstack.manip - condstack.gapratio[control]
+
+		# add a frequency column (turns frequency index into column)
+		condstack['freq'] = condstack.index.get_level_values('freq')
+
+		# group changes in gap detection by condition and frequency
+		condgp = condstack.groupby(('animalcondition', 'freq'))
+		condmeans = condgp.manipdiff.apply(np.mean).unstack('animalcondition')
+		condsems = condgp.manipdiff.apply(st.sem).unstack('animalcondition')
+
+		# line plot (change in gap detection VS frequency)
+		ufreqs = np.unique(condstack.freq).values
+		x = range(len(ufreqs))
+		fig, ax = plt.subplots()
+		styles = dict(tnfa=dict(color='r', hatch='///'), vehicle=dict(color='b', hatch=None))
+		for (key, y), (_, yerr) in zip(condmeans.iteritems(), condsems.iteritems()):
+			misc.errorfill(x, y, yerr, ax=ax, label=key, color=styles[key]['color'])
+		ax.set_xticks(x)
+		ax.set_xticklabels((ufreqs/1000.).astype(int))
+		ax.legend()
 
 	def compare_conditions_pairwise(self, control = 'preinjection'):
 		'''
@@ -168,79 +195,109 @@ class GapAnalysis(object):
 		'''
 
 		df = self.df
-		# remove below 5k and 40k
+
 		ucond = np.unique(df.condition).values
 		ncond = len(ucond)
 
-		'''
-		ANIMAL-WISE
-		First we'll make groups, one for each animal/condition
-		Red123-preinjection, Red123-postinjection
-		Blue123-preinjection, Blue123-postinjection, etc...
-
-		Take animal-wise means for each condition.
-
-		CONDITION-WISE (COMBINE ANIMALS)
-		'''
-		# make animal/condition groups
+		# make animal/condition/freq groups
 		animalgp = df.groupby(('animalID', 'condition', 'freq'))
 		# take means of gap performance for those groups
 		animalmeans = animalgp.agg(dict(gapratio = np.mean))
 
-		# make condition-wise groups
-		condgp = animalmeans.groupby(level = 'condition')
-		condmeans = condgp.gapratio.apply(np.mean)
-		condsems = condgp.gapratio.apply(st.sem)
-		# since we'll compare each of the groups to the "control" group
-		# let's separate control from manipulations
-		condmean_control = condmeans[control]
-		condsem_control = condsems[control]
-		condmean_manip = condmeans.select(lambda x: x != control)
-		condsem_manip = condsems.select(lambda x: x != control)
+		# put the control and manipulation columns side-by-side
+		condstack = animalmeans.unstack('condition')
 		
-		animalIDs = zip(*animalmeans.index)[0]
+		# add a column indicating which condition this animal is
+		animalcondition = []
+		for key, value in condstack.iterrows():
+			if not pd.isnull(value['gapratio']['tnfa']):
+				animalcondition.append('tnfa')
+			else:
+				animalcondition.append('vehicle')
+		condstack['animalcondition'] = animalcondition
 
-		styles = dict(tnfa=dict(ls='-', marker='^', mfc=[0.2, 0.2, 0.2]),
-			vehicle=dict(ls='--', marker='o', mfc='w'),
-			prenihl={'ls': '-', 'marker': '.', 'mfc': 'lightgray'},
-			postnihl={'ls': '--', 'marker': '.', 'mfc': 'darkgray'},
-			thalid1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			thalid2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			vehicle1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			vehicle2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			thalidwashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			thalidwashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			vehiclewashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			vehiclewashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'})
+		# make a column that is the result after manipulation
+		# (combines multiple columns for each manipulation)
+		# subtract the control from the manipulation values (for each frequency)
+		manip = condstack.gapratio.vehicle.copy()
+		manip.update(condstack.gapratio.tnfa)
+		condstack['manip'] = manip
+		condstack['manipdiff'] = condstack.manip - condstack.gapratio[control]
 
-		fig = plt.figure(figsize = (4, 8)); ax = fig.add_subplot(111)
-		
-		for animalID in animalIDs:
+		# add a frequency column (turns frequency index into column)
+		condstack['freq'] = condstack.index.get_level_values('freq')
 
-			animalmean = animalmeans.ix[animalID]
-			comparemean = animalmean.select(lambda x: x != control)
-			compare = comparemean.index[0]
+		# calculate change collapsing over freq
+		condgp = condstack.groupby('animalcondition')
+		condmeans = condgp.manipdiff.apply(np.mean)
+		condsems = condgp.manipdiff.apply(st.sem)
 
-			ycontrol = animalmean.ix[control].values[0]
-			ycompare = comparemean.ix[compare].values[0]
+		# bar plot (change in gap detection, collapsing frequency)
+		fig, ax = plt.subplots()
+		for i, ((key, y), (_, yerr)) in enumerate(zip(condmeans.iteritems(), condsems.iteritems())):
+			ax.bar(i+0.6, y, yerr=yerr, width=0.8, hatch=styles[key]['hatch'], fill=False, ecolor='k', label=key)
+		ax.axhline(0, color='k')
+		ax.legend(loc='upper center')
+		ax.set_xlim([0, 3])
 
-			ax.plot([0.3, 0.7], [ycontrol, ycompare], '.-', color = 'k', \
-				linestyle = styles[compare]['ls'], marker = styles[compare]['marker'], \
-				mfc = styles[compare]['mfc'], markersize = 10)
-		
-		barwidth = 0.2
-		ax.bar(0, condmean_control, yerr = condsem_control, width = barwidth, color = 'w', ecolor = 'k')
-		for j, ((i, y), (i, yerr)) in enumerate(zip(condmean_manip.iteritems(), condsem_manip.iteritems())):
-			ax.bar(0.8+j*barwidth, y, yerr = yerr, width = barwidth, color = 'w', ecolor = 'k', facecolor = styles[i]['mfc'], label = i)
 
-		ax.set_xticks([]); #ax.set_xticklabels([control[:5], 'manip'])
-		ax.set_ylabel('Gap ratio')
-		ax.set_xlim([-0.1, 1.3]); ax.set_ylim([0, 1])
-		ax.legend()
+def compare_conditions_pairwise_wrong():
+	''' check this'''
 
-		fig.subplots_adjust(left = 0.2)
-		figpath = os.path.join(self.studydir, 'Analysis', 'compare_conditions_pairwise_%s.png' % control)
-		fig.savefig(figpath)
+	# make condition-wise groups
+	condgp = animalmeans.groupby(level = ('condition', 'freq'))
+	condmeans = condgp.gapratio.apply(np.mean)
+	condsems = condgp.gapratio.apply(st.sem)
+	# since we'll compare each of the groups to the "control" group
+	# let's separate control from manipulations
+	condmean_control = condmeans[control]
+	condsem_control = condsems[control]
+	condmean_manip = condmeans.select(lambda x: x != control)
+	condsem_manip = condsems.select(lambda x: x != control)
+	
+	animalIDs = zip(*animalmeans.index)[0]
+
+	styles = dict(tnfa=dict(ls='-', marker='^', mfc=[0.2, 0.2, 0.2]),
+		vehicle=dict(ls='--', marker='o', mfc='w'),
+		prenihl={'ls': '-', 'marker': '.', 'mfc': 'lightgray'},
+		postnihl={'ls': '--', 'marker': '.', 'mfc': 'darkgray'},
+		thalid1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		thalid2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		vehicle1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		vehicle2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		thalidwashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		thalidwashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		vehiclewashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+		vehiclewashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'})
+
+	fig = plt.figure(figsize = (4, 8)); ax = fig.add_subplot(111)
+	
+	for animalID in animalIDs:
+
+		animalmean = animalmeans.ix[animalID]
+		comparemean = animalmean.select(lambda x: x != control)
+		compare = comparemean.index[0]
+
+		ycontrol = animalmean.ix[control].values[0]
+		ycompare = comparemean.ix[compare].values[0]
+
+		ax.plot([0.3, 0.7], [ycontrol, ycompare], '.-', color = 'k', \
+			linestyle = styles[compare]['ls'], marker = styles[compare]['marker'], \
+			mfc = styles[compare]['mfc'], markersize = 10)
+	
+	barwidth = 0.2
+	ax.bar(0, condmean_control, yerr = condsem_control, width = barwidth, color = 'w', ecolor = 'k')
+	for j, ((i, y), (i, yerr)) in enumerate(zip(condmean_manip.iteritems(), condsem_manip.iteritems())):
+		ax.bar(0.8+j*barwidth, y, yerr = yerr, width = barwidth, color = 'w', ecolor = 'k', facecolor = styles[i]['mfc'], label = i)
+
+	ax.set_xticks([]); #ax.set_xticklabels([control[:5], 'manip'])
+	ax.set_ylabel('Gap ratio')
+	ax.set_xlim([-0.1, 1.3]); ax.set_ylim([0, 1])
+	ax.legend()
+
+	fig.subplots_adjust(left = 0.2)
+	figpath = os.path.join(self.studydir, 'Analysis', 'compare_conditions_pairwise_%s.png' % control)
+	fig.savefig(figpath)
 
 	def compare_conditions_by_postdate1(self):
 
