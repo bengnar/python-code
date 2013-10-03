@@ -96,43 +96,51 @@ class GapAnalysis(object):
 			df_.gapratio-df_control2[animalID]
 			pass
 
-	def compare_condition_diffs(self, control = 'preinjection'):
+	def compare_condition_diffs(self, control = 'pre', bins=None):
 
+		df = self.df
 		df_control = df[df.condition==control]
-		animalgp_control = df_control.groupby(('animalID', 'condition'))
-		animalmeans_control = animalgp_control.agg(dict(gapratio = np.mean))
+		animalgp_control = df_control.groupby(('animalID', 'freq'))
+		animalmeans_control = animalgp_control.agg(dict(gapratio=np.mean))
 
 		df_manip = df[df.postdate1>0]
-		postdategp = df_manip.groupby(('animalID', 'postdate1'))
-		postdate_manip = postdategp.agg(dict(gapratio = np.mean, condition = misc.get_first, postdate1 = misc.get_first))
+		if bins is None:
+			bins = np.arange(df_manip.postdate1.min()-1, df_manip.postdate1.max()+1, 3)
+		df_manip['postdate_bin'] = pd.cut(df_manip.postdate1, bins=[0, 3, 6, 9])
+		postdategp = df_manip.groupby(('animalID', 'freq', 'postdate_bin'))
+		postdate_manip = postdategp.agg(dict(gapratio=np.mean)).unstack('postdate_bin')
 		
-		# add a column for gap detection difference for each animal/postdate
-		gapdiff = []
-		for ((animalID, _), (postdate1, condition, gapratio)) in postdate_manip.iterrows():
-			gapdiff.append(gapratio-animalmeans_control.ix[animalID]['gapratio'][0])
-		postdate_manip['gapdiff'] = gapdiff
+		gapdiff = pd.DataFrame(index=animalmeans_control.index)
+		for (key, df_) in postdate_manip.iteritems():
+			gapdiff[key[1]] = df_ - animalmeans_control.gapratio
 
-		datecondgp = postdate_manip.groupby(('postdate1', 'condition'))
-		datecondmean = datecondgp.agg(dict(gapdiff = np.mean)).unstack(level = 'condition')
-		datecondsem = datecondgp.agg(dict(gapdiff = st.sem)).unstack(level = 'condition')
+		condition_by_animal = df_manip.groupby('animalID').condition.first()
 
-		fig = plt.figure();
-		ax = fig.add_subplot(111);
-		x = np.arange(len(datecondmean))
-		xticklabels = datecondmean.index
-		colors = dict(tnfa = 'gray', vehicle = 'white')
-		for i, (((_, condition), y), (k, yerr)) in enumerate(zip(datecondmean.iteritems(), datecondsem.iteritems())):
-			ax.bar(x+(-i*0.4), y, yerr = yerr, width = 0.4, color = colors[condition], ecolor = 'k', label = condition)
+		cond = []
+		for (key, value) in gapdiff.iterrows():
+			cond.append(condition_by_animal[key[0]])
+		gapdiff['condition'] = cond
+
+		condgp = gapdiff.groupby('condition')
+		condmean = condgp.agg(np.mean)
+		condsem = condgp.agg(st.sem)
+
+		styles = dict(tnfa=dict(color='r', hatch='///'), vehicle=dict(color='b', hatch=None))
+		x = 2*np.arange(len(condmean))
+		width=0.8
+		fig, ax = plt.subplots()
+		for i,  ((key, y), (_, yerr)) in enumerate(zip(condmean.iterrows(), condsem.iterrows())):
+			ax.bar(x-width+(i*width), y, yerr=yerr, width=width, fill=False, hatch=styles[key]['hatch'], ecolor='k', label=key)
+
 		ax.legend(loc = 'best')
 		ax.set_xticks(x)
-		ax.set_xticklabels(xticklabels)
+		ax.set_xticklabels(condmean.columns)
 		ax.set_xlabel('Days post injection')
 		ax.set_ylabel('Change in gap detection ratio')
-		ax.set_xlim([-0.5, len(x)-0.5])
 		ax.axhline(0, color = 'k')
-		ax.set_title(os.path.split(studydir)[1])
+		ax.set_title(os.path.split(self.studydir)[1])
 
-		fig.savefig(os.path.join(studydir, 'Analysis', 'compare_condition_diffs.png'))
+		fig.savefig(os.path.join(self.studydir, 'Analysis', 'compare_condition_diffs.png'))
 
 	def compare_conditions_pairwise_by_freq(self, control = 'prenihl'):
 
