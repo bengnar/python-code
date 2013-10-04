@@ -195,9 +195,12 @@ def plot_spread_y(x):
 	y = np.arange(0, y_*nobs, y_)
 	return x + np.tile(y, (npts, 1))
 
-def errorfill(x, y, yerr = None, ax = None, color = 'b', err_type = 'sem', **kwargs):
+def errorfill(x, y, yerr = None, ax = None, color = None, err_type = 'sem', **kwargs):
 
 	ax, fig = axis_check(ax)
+
+	if color is None:
+		color = ax._get_lines.color_cycle.next()
 
 	if len(y.shape)==1:
 		y_mean = y
