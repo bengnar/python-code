@@ -35,6 +35,7 @@ class GapAnalysis(object):
 			os.mkdir(self.figdir)
 
 		self.load_experiment()
+		self.postdate_bins = [-100, 0, 2, 4, 6, 8, 10, 12]
 
 	def load_experiment(self, conditions = None, onlygood = True):
 		'''
@@ -381,41 +382,48 @@ class GapAnalysis(object):
 		figpath = os.path.join(self.figdir, 'compare_postdate1.png')
 		fig.savefig(figpath)
 
-	def group_compare_conditions_by_day(self, conditions=('tnfa', 'vehicle')):
+		plt.close(fig)
 
-		nconditions = len(conditions)
+	def group_compare_conditions_by_day(self, conditions = None, ax = None):
+
+		df = self.df
+
+		if not hasattr(df, 'condition_postdate'):
+			df = self.add_condition_postdate(df)
+
+		udays = np.unique(df.postdate_bin).values
+		
+		animalgp = df.groupby(('animalID', 'condition_postdate', 'freq'))
+		animaldf = animalgp.agg(dict(gapratio = np.mean))
+		condgp = animaldf.groupby(level = ('condition_postdate', 'freq'))
+
+		ufreqs = np.unique(df.freq).values
+		x = np.arange(ufreqs.size)
+		y = condgp.agg(np.mean)
+		yerr = condgp.agg(st.sem)
+
 		fig = plt.figure(figsize = (10, 8))
+		ax = fig.add_subplot(111)
+		for ((i, y_), (i2, yerr_)) in zip(y.unstack().iterrows(), yerr.unstack().iterrows()):
+			assert i==i2
+			misc.errorfill(x, y_, yerr_, label = i, ax = ax, marker = '.')
+		
+		ax.set_xticks(x)
+		ax.set_xlim([0, len(x)-1])
+		ax.set_xticklabels(np.int32(ufreqs/1000))
+		self.format_axis(ax)
+		ax.legend(loc='best')
+		ax.set_title('Start age: %u' % df.age.min())
 
-		for k, condition in enumerate(conditions):
-			df = self.df[self.df.condition==condition]
-
-			ufreqs = np.unique(df.freq).values
-			x = range(len(ufreqs))
-			sessgp = df.groupby(('condition', 'sess', 'freq'))
-			y = sessgp.agg(dict(gapratio = np.mean))
-			yerr = sessgp.agg(dict(gapratio = st.sem))
-
-			ax = fig.add_subplot(1, nconditions, k+1);
-			for j, (((i, y_), (i, yerr_))) in enumerate(zip(y.unstack().iterrows(), yerr.unstack().iterrows())):
-				misc.errorfill(x, y_, yerr_, label = i, ax = ax, marker = 'o', color = color_cycle[j])
-
-			ax.legend()
-			ax.set_xticks(x)
-			ax.set_xlim([0, len(x)])
-			ax.set_xticklabels(np.int32(ufreqs/1000))
-			ax.set_xlabel('Frequency (kHz)')
-			self.format_axis(ax)
-
-		figpath = os.path.join(self.figdir, 'compare_conditions_by_day_%s.png' % '_'.join(conditions))
+		figpath = os.path.join(self.figdir, 'group_compare_conditions_by_day.png')
 		fig.savefig(figpath)
 
-		return fig
+		plt.close(fig)
 
 	def group_compare_conditions(self, conditions = None, ax = None):
 
 		df = self.df
 
-		df['condition'] = [filter(lambda x: x.isalpha(), i) for i in df.condition]
 		animalgp = df.groupby(('animalID', 'condition', 'freq'))
 		animaldf = animalgp.agg(dict(gapratio = np.mean))
 		condgp = animaldf.groupby(level = ('condition', 'freq'))
@@ -428,11 +436,10 @@ class GapAnalysis(object):
 		fig = plt.figure(figsize = (10, 8))
 		ax = fig.add_subplot(111)
 		for ((i, y_), (i, yerr_)) in zip(y.unstack().iterrows(), yerr.unstack().iterrows()):
-			# ax.errorbar(x, y_, yerr_, label = i, marker = 'o', color = colors[i], ls = lss[i])
-			misc.errorfill(x, y_, yerr_, label = i, ax = ax, marker = 'o', color = colors[i], ls = lss[i])
+			misc.errorfill(x, y_, yerr_, label = i, ax = ax, marker = '.')
 		
 		ax.set_xticks(x)
-		ax.set_xlim([0, len(x)])
+		ax.set_xlim([0, len(x)-1])
 		ax.set_xticklabels(np.int32(ufreqs/1000))
 		self.format_axis(ax)
 		ax.legend(loc='best')
@@ -441,7 +448,8 @@ class GapAnalysis(object):
 		figpath = os.path.join(self.figdir, 'compare_conditions.png')
 		fig.savefig(figpath)
 
-		return fig
+		plt.close(fig)
+
 
 	def single_subject_compare_conditions_by_day(self):
 		'''
@@ -452,8 +460,7 @@ class GapAnalysis(object):
 		fig, ax = plt.subplots(figsize = (10, 8))
 
 		df = self.df
-		df['postdate_bin'] = pd.cut(df.postdate1, bins=[-100, 0, 2, 4, 6, 8, 10])
-		df['condition_postdate'] = df.condition+df.postdate_bin
+		df = self.add_condition_postdate(df)
 
 		for animalID in self.animalIDs:
 
@@ -517,8 +524,7 @@ class GapAnalysis(object):
 		'''
 
 		df = self.df
-		df['postdate_bin'] = pd.cut(df.postdate1, bins=[-100, 0, 2, 4, 6])
-		df['condition_postdate'] = df.condition+df.postdate_bin
+		df = self.add_condition_postdate(df)
 		
 		animals = np.unique(df.animalID).values
 		ufreqs = np.unique(df.freq).values
@@ -585,6 +591,13 @@ class GapAnalysis(object):
 		ax.axhline([1.0], color='r', ls='--')
 		# ax.legend()
 
+	def add_condition_postdate(self, df, bins=None):
+
+		if bins is None: bins = self.postdate_bins
+
+		df['postdate_bin'] = pd.cut(df.postdate1, bins=[-100, 0, 2, 4, 6, 8, 10])
+		df['condition_postdate'] = df.condition+df.postdate_bin
+		return df
+
 	def analyze(self):
 		raise NotImplementedError
-		
