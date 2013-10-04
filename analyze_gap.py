@@ -171,9 +171,6 @@ class GapAnalysis(object):
 		condsem = condgp.agg(agg_nansem)
 
 
-
-
-
 	def pairwise_compare_condition_by_day(self, control = 'pre', bins=None):
 		'''
 		Plots change in gap ratio pairwise for each animal, pre- and post-manipulation
@@ -229,9 +226,9 @@ class GapAnalysis(object):
 		ax.axhline(0, color = 'k')
 		ax.set_title(os.path.split(self.studydir)[1])
 
-		fig.savefig(os.path.join(self.figdir, 'compare_condition_diffs.png'))
+		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_condition_by_day.png'))
 
-	def compare_conditions_pairwise_by_freq(self, control = 'prenihl'):
+	def pairwise_compare_conditions_by_freq(self, control = 'prenihl'):
 
 		df = self.df
 
@@ -282,7 +279,7 @@ class GapAnalysis(object):
 		ax.set_xticklabels((ufreqs/1000.).astype(int))
 		ax.legend()
 
-	def compare_conditions_pairwise(self, control = 'preinjection'):
+	def pairwise_compare_conditions(self, control = 'preinjection'):
 		'''
 		Performs a pairwise comparison between a control condition and several "manipulated"
 		conditions where the manipulations were performed on DIFFERENT ANIMALS.
@@ -337,65 +334,6 @@ class GapAnalysis(object):
 		ax.legend(loc='upper center')
 		ax.set_xlim([0, 3])
 
-
-	def compare_conditions_pairwise_wrong():
-		''' check this'''
-
-		# make condition-wise groups
-		condgp = animalmeans.groupby(level = ('condition', 'freq'))
-		condmeans = condgp.gapratio.apply(np.mean)
-		condsems = condgp.gapratio.apply(st.sem)
-		# since we'll compare each of the groups to the "control" group
-		# let's separate control from manipulations
-		condmean_control = condmeans[control]
-		condsem_control = condsems[control]
-		condmean_manip = condmeans.select(lambda x: x != control)
-		condsem_manip = condsems.select(lambda x: x != control)
-		
-		animalIDs = zip(*animalmeans.index)[0]
-
-		styles = dict(tnfa=dict(ls='-', marker='^', mfc=[0.2, 0.2, 0.2]),
-			vehicle=dict(ls='--', marker='o', mfc='w'),
-			prenihl={'ls': '-', 'marker': '.', 'mfc': 'lightgray'},
-			postnihl={'ls': '--', 'marker': '.', 'mfc': 'darkgray'},
-			thalid1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			thalid2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			vehicle1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			vehicle2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			thalidwashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			thalidwashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			vehiclewashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-			vehiclewashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'})
-
-		fig = plt.figure(figsize = (4, 8)); ax = fig.add_subplot(111)
-		
-		for animalID in animalIDs:
-
-			animalmean = animalmeans.ix[animalID]
-			comparemean = animalmean.select(lambda x: x != control)
-			compare = comparemean.index[0]
-
-			ycontrol = animalmean.ix[control].values[0]
-			ycompare = comparemean.ix[compare].values[0]
-
-			ax.plot([0.3, 0.7], [ycontrol, ycompare], '.-', color = 'k', \
-				linestyle = styles[compare]['ls'], marker = styles[compare]['marker'], \
-				mfc = styles[compare]['mfc'], markersize = 10)
-		
-		barwidth = 0.2
-		ax.bar(0, condmean_control, yerr = condsem_control, width = barwidth, color = 'w', ecolor = 'k')
-		for j, ((i, y), (i, yerr)) in enumerate(zip(condmean_manip.iteritems(), condsem_manip.iteritems())):
-			ax.bar(0.8+j*barwidth, y, yerr = yerr, width = barwidth, color = 'w', ecolor = 'k', facecolor = styles[i]['mfc'], label = i)
-
-		ax.set_xticks([]); #ax.set_xticklabels([control[:5], 'manip'])
-		ax.set_ylabel('Gap ratio')
-		ax.set_xlim([-0.1, 1.3]); ax.set_ylim([0, 1])
-		ax.legend()
-
-		fig.subplots_adjust(left = 0.2)
-		figpath = os.path.join(self.figdir, 'compare_conditions_pairwise_%s.png' % control)
-		fig.savefig(figpath)
-
 	def compare_conditions_by_postdate1(self):
 
 		df = self.df
@@ -443,7 +381,7 @@ class GapAnalysis(object):
 		figpath = os.path.join(self.figdir, 'compare_postdate1.png')
 		fig.savefig(figpath)
 
-	def compare_conditions_by_day(self, conditions=('tnfa', 'vehicle')):
+	def group_compare_conditions_by_day(self, conditions=('tnfa', 'vehicle')):
 
 		nconditions = len(conditions)
 		fig = plt.figure(figsize = (10, 8))
@@ -473,10 +411,9 @@ class GapAnalysis(object):
 
 		return fig
 
-	def compare_conditions(self, conditions = None, ax = None):
+	def group_compare_conditions(self, conditions = None, ax = None):
 
 		df = self.df
-
 
 		df['condition'] = [filter(lambda x: x.isalpha(), i) for i in df.condition]
 		animalgp = df.groupby(('animalID', 'condition', 'freq'))
@@ -649,21 +586,5 @@ class GapAnalysis(object):
 		# ax.legend()
 
 	def analyze(self):
-
-		# try:
-		fig = self.compare_conditions()
-		plt.close(fig)
-		# 	fig = self.compare_conditions_by_day()
-		# 	plt.close(fig)
-		# except:
-		# 	pass
-		# fig = self.single_subject_conditionmeans()
-		# plt.close(fig)
-		# fig = self.single_subject_startleampl(); plt.close(fig)
-		# self.single_subject_dailyresults(cond_color = False)
+		raise NotImplementedError
 		
-		# useful for determining which of the initial sessions should be included
-		conditions = np.unique(self.df.condition).values
-		for condition in conditions:
-			self.single_subject_dailyresults(condition=condition, cond_color=False)
-
