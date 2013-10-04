@@ -204,17 +204,17 @@ def errorfill(x, y, yerr = None, ax = None, color = 'b', err_type = 'sem', **kwa
 	else:
 		y_mean = y.mean(0)
 
-	if y_err is None:
+	if yerr is None:
 		if err_type == 'sem':
-			y_err = 0.5*st.sem(y, 0)
+			yerr = 0.5*st.sem(y, 0)
 		elif err_type == 'std':
-			y_err = 0.5*st.std(y, 0)
+			yerr = 0.5*st.std(y, 0)
 
-	x_hi = y_mean + y_err
-	x_lo = y_mean - y_err
+	x_hi = y_mean + yerr
+	x_lo = y_mean - yerr
 	l = ax.plot(x, y_mean, color = color, **kwargs)
-	l_up = ax.plot(x, y_mean+y_err, color = color, alpha = 0.2)
-	l_lo = ax.plot(x, y_mean-y_err, color = color, alpha = 0.2)
+	l_up = ax.plot(x, y_mean+yerr, color = color, alpha = 0.2)
+	l_lo = ax.plot(x, y_mean-yerr, color = color, alpha = 0.2)
 	ax.fill_between(x, x_hi, x_lo, alpha = 0.2, color = color)
 	
 	return ax
