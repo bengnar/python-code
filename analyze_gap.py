@@ -14,15 +14,19 @@ colors = dict(control = 'k', salicylate = 'r', prenihl = 'k', postnihl = 'g', po
 lss = dict(control = '-', salicylate = '--', prenihl = '-', postnihl = '--', postnihl5d = '--', thalid = '--', vehicle = '--', \
 	preinjection = '-', preinjectiontnfa = '-', preinjectionvehicle = '-', pre = '-', tnfa = '--', thalidwashout = '--', vehiclewashout = '--')
 
+def nanmean(ser):
+	return np.mean(ser[~pd.isnull(ser)])
 
+def nansem(ser):
+	return st.sem(ser[~pd.isnull(ser)])
 
 class GapAnalysis(object):
 
 	def __init__(self, studyID=None, cageID=None):
 
 		self.basedir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior'
-		# self.basedir = '/Users/robert/Desktop'
-		studydir = os.path.join(self.basedir, studyID, cageID)
+		self.basedir = '/Users/robert/Desktop'
+		# studydir = os.path.join(self.basedir, studyID, cageID)
 		if (studyID is not None) and (cageID is not None):
 			self.select_study(studyID, cageID)
 
@@ -96,7 +100,88 @@ class GapAnalysis(object):
 			df_.gapratio-df_control2[animalID]
 			pass
 
-	def compare_condition_diffs(self, control = 'pre', bins=None):
+	def condition_means_by_animal_by_day(self, bins=None):
+		'''
+		Plots the raw gap detection ratio as a function of frequency 
+		averaged over a couple days (specify bins)
+		'''
+		df = self.df
+
+		df = df[df.freq<28000]
+		if bins is None:
+			bins = [-100, 0, 2, 4, 6, 8, 10]
+
+		df['postdate_bin'] = pd.cut(df.postdate1, bins=bins)
+		gp = df.groupby(('animalID', 'freq', 'postdate_bin'))
+		
+		condmean = gp.gapratio.agg(nanmean).unstack('postdate_bin')
+		condmean = gp.agg(dict(gapratio=nanmean, condition=misc.get_first)).unstack('postdate_bin')
+		condsem = gp.agg(dict(gapratio=nansem, condition=misc.get_first)).unstack('postdate_bin')
+
+		animals = np.unique(df.animalID)
+		fig, ax = plt.subplots()
+		for animal in animals:
+			condmean.ix[animal].plot(kind='line', ax=ax)
+			cond = df.ix[df['animalID']==animal].iloc[-1]['condition']
+			ax.set_title('%s (%s)' % (animal, cond))
+			fig.savefig(os.path.join(self.studydir, 'Analysis', '%s_%s_means_by_animal_by_day.png' % (animal, cond)))
+			ax.cla()
+
+		plt.close(fig)
+
+	def condition_means_by_day(self, bins=None):
+
+		pass
+
+	def pairwise_compare_condition_by_day_by_freq(self):
+
+		df = self.df
+
+		df_control = df[df.condition==control]
+		animalgp_control = df_control.groupby(('animalID', 'freq'))
+		animalmeans_control = animalgp_control.agg(dict(gapratio=np.mean))
+
+		df_manip = df[df.postdate1>0]
+		if bins is None:
+			bins = np.arange(df_manip.postdate1.min()-1, df_manip.postdate1.max()+1, 2)
+		df_manip['postdate_bin'] = pd.cut(df_manip.postdate1, bins=bins)
+		postdategp = df_manip.groupby(('animalID', 'freq', 'postdate_bin'))
+		postdate_manip = postdategp.agg(dict(gapratio=np.mean)).unstack('postdate_bin')
+		
+		gapdiff = pd.DataFrame(index=animalmeans_control.index)
+		for (key, df_) in postdate_manip.iteritems():
+			gapdiff[key[1]] = df_ - animalmeans_control.gapratio
+
+		condition_by_animal = df_manip.groupby('animalID').condition.first()
+
+		cond = []
+		for (key, value) in gapdiff.iterrows():
+			cond.append(condition_by_animal[key[0]])
+		gapdiff['condition'] = cond
+
+		# add frequency column (from index)
+		gapdiff['freq'] = gapdiff.index.get_level_values('freq')
+
+		condgp = gapdiff.groupby(('condition', 'freq'))
+		condmean = condgp.agg(nanmean)
+		condsem = condgp.agg(nansem)
+
+
+
+
+
+	def pairwise_compare_condition_by_day(self, control = 'pre', bins=None):
+		'''
+		Plots change in gap ratio pairwise for each animal, pre- and post-manipulation
+		
+		The gap ratio is calculated as the average for each this animal, each frequency
+		and then averaged for all frequencies.
+		Change in gap ratio is the difference between this value for the pre- and post-
+		manipulation days.
+		
+		bins : Post-manipulation data is averaged in bins of 2 days, by default, but arbitrary bin
+			sizes can be used
+		'''
 
 		df = self.df
 		df_control = df[df.condition==control]
@@ -105,8 +190,8 @@ class GapAnalysis(object):
 
 		df_manip = df[df.postdate1>0]
 		if bins is None:
-			bins = np.arange(df_manip.postdate1.min()-1, df_manip.postdate1.max()+1, 3)
-		df_manip['postdate_bin'] = pd.cut(df_manip.postdate1, bins=[0, 3, 6, 9])
+			bins = np.arange(df_manip.postdate1.min()-1, df_manip.postdate1.max()+1, 2)
+		df_manip['postdate_bin'] = pd.cut(df_manip.postdate1, bins=bins)
 		postdategp = df_manip.groupby(('animalID', 'freq', 'postdate_bin'))
 		postdate_manip = postdategp.agg(dict(gapratio=np.mean)).unstack('postdate_bin')
 		
@@ -122,11 +207,11 @@ class GapAnalysis(object):
 		gapdiff['condition'] = cond
 
 		condgp = gapdiff.groupby('condition')
-		condmean = condgp.agg(np.mean)
-		condsem = condgp.agg(st.sem)
+		condmean = condgp.agg(nanmean)
+		condsem = condgp.agg(nansem)
 
 		styles = dict(tnfa=dict(color='r', hatch='///'), vehicle=dict(color='b', hatch=None))
-		x = 2*np.arange(len(condmean))
+		x = 2*np.arange(len(condmean.columns))
 		width=0.8
 		fig, ax = plt.subplots()
 		for i,  ((key, y), (_, yerr)) in enumerate(zip(condmean.iterrows(), condsem.iterrows())):
@@ -524,8 +609,8 @@ def compare_conditions_pairwise_wrong():
 	def analyze(self):
 
 		# try:
-		# 	fig = self.compare_conditions()
-		# 	plt.close(fig)
+		fig = self.compare_conditions()
+		plt.close(fig)
 		# 	fig = self.compare_conditions_by_day()
 		# 	plt.close(fig)
 		# except:
