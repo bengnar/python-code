@@ -195,7 +195,7 @@ def plot_spread_y(x):
 	y = np.arange(0, y_*nobs, y_)
 	return x + np.tile(y, (npts, 1))
 
-def errorfill(x, y, y_err = None, ax = None, color = 'b', err_type = 'sem', **kwargs):
+def errorfill(x, y, yerr = None, ax = None, color = 'b', err_type = 'sem', **kwargs):
 
 	ax, fig = axis_check(ax)
 
