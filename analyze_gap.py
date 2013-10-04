@@ -34,114 +34,31 @@ class GapAnalysis(object):
 		if not os.path.exists(self.figdir):
 			os.mkdir(self.figdir)
 
-		self.load_experiment()
 		self.postdate_bins = [-100, 0, 2, 4, 6, 8, 10, 12]
+		self.load_experiment()
+		self.df = self.add_condition_postdate(self.df)
+		
+		notepath = os.path.join(self.studydir, 'notes.txt')
+		if os.path.exists(notepath):
+			with open(notepath) as f:
+				self._notes = f.read()
+		else:
+			self._notes = None
+
 		self.figformat = 'png'
 
-	def load_experiment(self, conditions = None, onlygood = True):
+	def pairwise_compare_conditions_by_day_by_freq(self, control='pre', bins=None):
 		'''
-
-		'''
-		if conditions is None:
-			cond_patts = ['']
-		else:
-			if type(conditions) is str:
-				conditions = [conditions]
-
-			cond_patts = []
-			for condition in conditions:	
-				cond_patts.append('_'+condition+'_')
-
-		fnames = []
-		for cond_patt in cond_patts:
-			if onlygood:
-				patt = os.path.join(self.studydir, 'gapdetection', '[A-Za-z]*%s*' % cond_patt)
-			else:
-				patt = os.path.join(self.studydir, 'gapdetection', '*%s*' % cond_patt)
-			fnames.extend(glob.glob(patt))
-
-		dfs = []
-		if len(fnames)==0:
-			print 'No files found with pattern\n%s' % patt
-		else:
-			for fname in fnames:
-				df_ = pd.read_csv(fname)
-				dfs.append(df_)
-			df = pd.concat(dfs)
-
-			df = df[np.vstack((5000<df.freq, df.freq<40000)).all(0)]
-			self.df = df
-
-	def select_study(self, studyID, cageID):
-
-		studydir = os.path.join(self.basedir, studyID, cageID)
-		animalIDs = pd.read_csv(os.path.join(studydir, 'dobs.csv'))['animalID'] 
-		animalIDs = [i for i in animalIDs if i[0]!='_']
-		
-		self.animalIDs = animalIDs
-		self.studydir = studydir
-		self.studyID = studyID
-		self.cageID = cageID
-
-
-	def compare_condition_diffs_by_freq(self):
-
-		df = self.df
-		# select the final day's results as the control
-		df_pre = df[df.postdate1<0]
-		df_pre.groupby('animalID')
-		df_control = []
-		for animalID, df_ in df_pre.groupby('animalID'):
-			last_sess = df_.postdate1.max()
-			df_control.append(df_[df_.postdate1==last_sess])
-		df_control = pd.concat(df_control)
-		df_control.pivot('freq', 'animalID', 'gapratio').plot()
-
-		df_control2 = df_control.pivot('freq', 'animalID', 'gapratio')
-
-		df_manip = df[df.postdate1>0]
-		df_manip.pivot('freq', 'animalID', 'gapratio')
-		for (animalID, postdate), df_ in df_manip.groupby(('animalID', 'postdate1')):
-			
-			df_.gapratio-df_control2[animalID]
-			pass
-
-	def condition_means_by_animal_by_day(self, bins=None):
-		'''
-		Plots the raw gap detection ratio as a function of frequency 
-		averaged over a couple days (specify bins)
+		Plots pairwise differences (each animal's change in gapratio performance
+		from their control data) by day as a function of frequency
 		'''
 		df = self.df
 
-		df = df[df.freq<28000]
-		if bins is None:
-			bins = [-100, 0, 2, 4, 6, 8, 10]
+		if not hasattr(df, 'condition_postdate'):
+			df = self.add_condition_postdate(df)
 
-		df['postdate_bin'] = pd.cut(df.postdate1, bins=bins)
-		gp = df.groupby(('animalID', 'freq', 'postdate_bin'))
-		
-		condmean = gp.gapratio.agg(agg_nanmean).unstack('postdate_bin')
-		condmean = gp.agg(dict(gapratio=agg_nanmean, condition=misc.get_first)).unstack('postdate_bin')
-		condsem = gp.agg(dict(gapratio=agg_nansem, condition=misc.get_first)).unstack('postdate_bin')
-
-		animals = np.unique(df.animalID)
-		fig, ax = plt.subplots()
-		for animal in animals:
-			condmean.ix[animal].plot(kind='line', ax=ax)
-			cond = df.ix[df['animalID']==animal].iloc[-1]['condition']
-			ax.set_title('%s (%s)' % (animal, cond))
-			fig.savefig(os.path.join(self.figdir, '%s_%s_means_by_animal_by_day.%s' % (animal, cond, self.figformat)))
-			ax.cla()
-
-		plt.close(fig)
-
-	def condition_means_by_day(self, bins=None):
-
-		pass
-
-	def pairwise_compare_condition_by_day_by_freq(self):
-
-		df = self.df
+		udays = np.unique(df.postdate_bin).values
+		ndays = len(udays)-1 # control should have its own date bin
 
 		df_control = df[df.condition==control]
 		animalgp_control = df_control.groupby(('animalID', 'freq'))
@@ -172,8 +89,31 @@ class GapAnalysis(object):
 		condmean = condgp.agg(agg_nanmean)
 		condsem = condgp.agg(agg_nansem)
 
+		ufreqs = np.unique(df.freq).values
+		x = range(len(ufreqs))
 
-	def pairwise_compare_condition_by_day(self, control = 'pre', bins=None):
+		fig, axs = plt.subplots(1, ndays, figsize=(12, 8))
+		for i, ((ix, y_), (ix2, yerr_)) in enumerate(zip(condmean.iteritems(), condsem.iteritems())):
+			assert ix==ix2
+			for (cond, cond_y), (cond, cond_yerr) in zip(y_.unstack('condition').iteritems(), yerr_.unstack('condition').iteritems()):
+				axs[i].errorbar(x, cond_y, yerr=cond_yerr, c=colors[cond], label=cond)
+			axs[i].set_title('Postdate %s' % ix[1])
+
+		[a.set_xticks(x) for a in axs]
+		[a.set_xlim([-0.5, len(x)-0.5]) for a in axs]
+		[a.set_ylim([-0.7, 0.7]) for a in axs]
+		[a.set_xticklabels(np.int32(ufreqs/1000)) for a in axs]
+		axs[0].set_ylabel('$\Delta$ Gap ratio')
+		[a.set_xlabel('Frequency (kHz') for a in axs]
+		[a.axhline(0., c='k', ls='--') for a in axs]
+		axs[-1].legend(loc='best')
+
+		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_conditions_by_day_by_freq.%s' % self.figformat))
+
+		plt.close(fig)
+
+
+	def pairwise_compare_conditions_by_day(self, control = 'pre', bins=None):
 		'''
 		Plots change in gap ratio pairwise for each animal, pre- and post-manipulation
 		
@@ -230,6 +170,8 @@ class GapAnalysis(object):
 
 		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_condition_by_day.%s' % self.figformat))
 
+		plt.close(fig)
+
 	def pairwise_compare_conditions_by_freq(self, control = 'prenihl'):
 
 		df = self.df
@@ -281,7 +223,11 @@ class GapAnalysis(object):
 		ax.set_xticklabels((ufreqs/1000.).astype(int))
 		ax.legend()
 
-	def pairwise_compare_conditions(self, control = 'preinjection'):
+		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_conditions_by_freq.%s' % self.figformat))
+
+		plt.close(fig)
+
+	def pairwise_compare_conditions(self, control = 'pre'):
 		'''
 		Performs a pairwise comparison between a control condition and several "manipulated"
 		conditions where the manipulations were performed on DIFFERENT ANIMALS.
@@ -336,56 +282,14 @@ class GapAnalysis(object):
 		ax.legend(loc='upper center')
 		ax.set_xlim([0, 3])
 
-	def compare_conditions_by_postdate1(self):
-
-		df = self.df
-
-		df_pre = df[df.postdate1<0]
-		df = df[df.postdate1>0]
-		df['postdate1'][df.postdate1>7] = 7
-
-		freqgp = df_pre.groupby('freq')
-		y_pre = freqgp.gapratio.apply(np.mean)
-		yerr_pre = freqgp.gapratio.apply(st.sem)
-
-
-		udate = np.unique(df.postdate1).values
-		ndates = len(udate)
-		ncols = np.ceil(np.sqrt(ndates))
-
-		sessgp = df.groupby(('postdate1', 'condition', 'freq'))
-		# x = 
-		y = sessgp.gapratio.apply(np.mean).unstack('condition')
-		yerr = sessgp.gapratio.apply(st.sem).unstack('condition')
-
-		colors = dict(tnfa='r', vehicle='b')
-		fig = plt.figure(figsize=(10, 8.5))
-
-		for j, date in enumerate(udate):
-
-			ax = fig.add_subplot(2, 2, j+1)
-
-			y_ = y.ix[date]
-			yerr_ = yerr.ix[date]
-
-			x = range(len(y_.index))
-
-			ax.errorbar(x, y_pre, yerr=yerr_pre, color='k', ecolor='k', label='preinjection')
-
-			for ((i, yc), (i, yerrc)) in zip(y_.iteritems(), yerr_.iteritems()):
-				ax.errorbar(x, yc, yerr=yerrc, color=colors[i], label=i)
-				ax.set_title('%u days post injection' % date)
-				ax.set_xticklabels((y_.index / 1000.).astype(int))
-				# ax.set_xlim([-1, len(x)])
-				self.format_axis(ax)
-
-		ax.legend()
-		figpath = os.path.join(self.figdir, 'compare_postdate1.%s' % self.figformat)
-		fig.savefig(figpath)
+		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_conditions.%s' % self.figformat))
 
 		plt.close(fig)
 
 	def group_compare_conditions_by_day(self, control='pre'):
+		'''
+		Plot group averages for condition for each day bin
+		'''
 
 		df = self.df
 
@@ -425,6 +329,7 @@ class GapAnalysis(object):
 		[a.set_xticklabels(np.int32(ufreqs/1000)) for a in axs]
 		axs[0].set_ylabel('Gap ratio')
 		[a.set_xlabel('Frequency (kHz') for a in axs]
+		[a.axhline(1., c='r', ls='--') for a in axs]
 		axs[-1].legend(loc='best')
 
 		figpath = os.path.join(self.figdir, 'group_compare_conditions_by_day.%s' % self.figformat)
@@ -593,7 +498,7 @@ class GapAnalysis(object):
 			fig.savefig(figpath)
 			fig.clf();
 
-		return fig
+		plt.close(fig)
 
 	def format_axis(self, ax):
 		
@@ -611,5 +516,72 @@ class GapAnalysis(object):
 		df['condition_postdate'] = df.condition+df.postdate_bin
 		return df
 
+	def load_experiment(self, conditions = None, onlygood = True):
+		'''
+
+		'''
+		if conditions is None:
+			cond_patts = ['']
+		else:
+			if type(conditions) is str:
+				conditions = [conditions]
+
+			cond_patts = []
+			for condition in conditions:	
+				cond_patts.append('_'+condition+'_')
+
+		fnames = []
+		for cond_patt in cond_patts:
+			if onlygood:
+				patt = os.path.join(self.studydir, 'gapdetection', '[A-Za-z]*%s*' % cond_patt)
+			else:
+				patt = os.path.join(self.studydir, 'gapdetection', '*%s*' % cond_patt)
+			fnames.extend(glob.glob(patt))
+
+		dfs = []
+		if len(fnames)==0:
+			print 'No files found with pattern\n%s' % patt
+		else:
+			for fname in fnames:
+				df_ = pd.read_csv(fname)
+				dfs.append(df_)
+			df = pd.concat(dfs)
+
+			df = df[np.vstack((5000<df.freq, df.freq<40000)).all(0)]
+			self.df = df
+
+	def select_study(self, studyID, cageID):
+
+		studydir = os.path.join(self.basedir, studyID, cageID)
+		animalIDs = pd.read_csv(os.path.join(studydir, 'dobs.csv'))['animalID'] 
+		animalIDs = [i for i in animalIDs if i[0]!='_']
+		
+		self.animalIDs = animalIDs
+		self.studydir = studydir
+		self.studyID = studyID
+		self.cageID = cageID
+
 	def analyze(self):
-		raise NotImplementedError
+		try: self.pairwise_compare_conditions_by_day_by_freq()
+		except: pass
+		try: self.pairwise_compare_conditions_by_day()
+		except: pass
+		try: self.pairwise_compare_conditions_by_freq()
+		except: pass
+		try: self.pairwise_compare_conditions()
+		except: pass
+		try: self.single_subject_daily_results()
+		except: pass
+		try: self.group_compare_conditions_by_day()
+		except: pass
+		try: self.group_compare_conditions()
+		except: pass
+		try: self.single_subject_compare_conditions_by_day()
+		except: pass
+		try: self.single_subject_compare_conditions()
+		except: pass
+		try: self.single_subject_daily_results()
+		except: pass
+
+	def notes(self):
+		print self._notes
