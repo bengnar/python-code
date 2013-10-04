@@ -36,6 +36,7 @@ class GapAnalysis(object):
 
 		self.load_experiment()
 		self.postdate_bins = [-100, 0, 2, 4, 6, 8, 10, 12]
+		self.figformat = 'png'
 
 	def load_experiment(self, conditions = None, onlygood = True):
 		'''
@@ -129,7 +130,7 @@ class GapAnalysis(object):
 			condmean.ix[animal].plot(kind='line', ax=ax)
 			cond = df.ix[df['animalID']==animal].iloc[-1]['condition']
 			ax.set_title('%s (%s)' % (animal, cond))
-			fig.savefig(os.path.join(self.figdir, '%s_%s_means_by_animal_by_day.png' % (animal, cond)))
+			fig.savefig(os.path.join(self.figdir, '%s_%s_means_by_animal_by_day.%s' % (animal, cond, self.figformat)))
 			ax.cla()
 
 		plt.close(fig)
@@ -227,7 +228,7 @@ class GapAnalysis(object):
 		ax.axhline(0, color = 'k')
 		ax.set_title(os.path.split(self.studydir)[1])
 
-		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_condition_by_day.png'))
+		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_condition_by_day.%s' % self.figformat))
 
 	def pairwise_compare_conditions_by_freq(self, control = 'prenihl'):
 
@@ -379,43 +380,54 @@ class GapAnalysis(object):
 				self.format_axis(ax)
 
 		ax.legend()
-		figpath = os.path.join(self.figdir, 'compare_postdate1.png')
+		figpath = os.path.join(self.figdir, 'compare_postdate1.%s' % self.figformat)
 		fig.savefig(figpath)
 
 		plt.close(fig)
 
-	def group_compare_conditions_by_day(self, conditions = None, ax = None):
+	def group_compare_conditions_by_day(self, control='pre'):
 
 		df = self.df
+
+		uconds = np.unique(df.condition).values
+		manip = [i for i in uconds if i!=control]
 
 		if not hasattr(df, 'condition_postdate'):
 			df = self.add_condition_postdate(df)
 
 		udays = np.unique(df.postdate_bin).values
-		
-		animalgp = df.groupby(('animalID', 'condition_postdate', 'freq'))
+		ndays = len(udays)-1 # control should have its own date bin
+
+		animalgp = df.groupby(('animalID', 'condition', 'postdate_bin', 'freq'))
 		animaldf = animalgp.agg(dict(gapratio = np.mean))
-		condgp = animaldf.groupby(level = ('condition_postdate', 'freq'))
+		condgp = animaldf.groupby(level = ('condition', 'postdate_bin', 'freq'))
 
 		ufreqs = np.unique(df.freq).values
 		x = np.arange(ufreqs.size)
 		y = condgp.agg(np.mean)
 		yerr = condgp.agg(st.sem)
+		ymean_control = y.ix[control]
+		yerr_control = yerr.ix[control]
+		ymean_manip = y.ix[manip].unstack('postdate_bin')
+		yerr_manip = yerr.ix[manip].unstack('postdate_bin')
 
-		fig = plt.figure(figsize = (10, 8))
-		ax = fig.add_subplot(111)
-		for ((i, y_), (i2, yerr_)) in zip(y.unstack().iterrows(), yerr.unstack().iterrows()):
-			assert i==i2
-			misc.errorfill(x, y_, yerr_, label = i, ax = ax, marker = '.')
-		
-		ax.set_xticks(x)
-		ax.set_xlim([0, len(x)-1])
-		ax.set_xticklabels(np.int32(ufreqs/1000))
-		self.format_axis(ax)
-		ax.legend(loc='best')
-		ax.set_title('Start age: %u' % df.age.min())
+		fig, axs = plt.subplots(1, ndays, figsize=(12, 8))
+		for i, ((ix, y_), (ix2, yerr_)) in enumerate(zip(ymean_manip.iteritems(), yerr_manip.iteritems())):
+			assert ix==ix2
+			for (cond, cond_y), (cond, cond_yerr) in zip(y_.unstack('condition').iteritems(), yerr_.unstack('condition').iteritems()):
+				axs[i].errorbar(x, cond_y, yerr=cond_yerr, c=colors[cond], label=cond)
+			axs[i].errorbar(x, ymean_control.values.flatten(), yerr=yerr_control.values.flatten(), c=colors[control], marker='.', label=control)
+			axs[i].set_title('Postdate %s' % ix[1])
 
-		figpath = os.path.join(self.figdir, 'group_compare_conditions_by_day.png')
+		[a.set_xticks(x) for a in axs]
+		[a.set_xlim([-0.5, len(x)-0.5]) for a in axs]
+		[a.set_ylim([0, 1.5]) for a in axs]
+		[a.set_xticklabels(np.int32(ufreqs/1000)) for a in axs]
+		axs[0].set_ylabel('Gap ratio')
+		[a.set_xlabel('Frequency (kHz') for a in axs]
+		axs[-1].legend(loc='best')
+
+		figpath = os.path.join(self.figdir, 'group_compare_conditions_by_day.%s' % self.figformat)
 		fig.savefig(figpath)
 
 		plt.close(fig)
@@ -445,7 +457,7 @@ class GapAnalysis(object):
 		ax.legend(loc='best')
 		ax.set_title('Start age: %u' % df.age.min())
 
-		figpath = os.path.join(self.figdir, 'compare_conditions.png')
+		figpath = os.path.join(self.figdir, 'compare_conditions.%s' % self.figformat)
 		fig.savefig(figpath)
 
 		plt.close(fig)
@@ -480,7 +492,7 @@ class GapAnalysis(object):
 			self.format_axis(ax)
 			ax.legend()
 
-			figpath = os.path.join(self.figdir, 'single_subject_compare_conditions_by_day_%s.png' % animalID)
+			figpath = os.path.join(self.figdir, 'single_subject_compare_conditions_by_day_%s.%s' % (animalID, self.figformat))
 			fig.savefig(figpath)
 			ax.cla();
 
@@ -512,7 +524,7 @@ class GapAnalysis(object):
 			self.format_axis(ax)
 			ax.legend()
 
-			figpath = os.path.join(self.figdir, 'single_subject_compareconditions_%s.png' % animalID)
+			figpath = os.path.join(self.figdir, 'single_subject_compareconditions_%s.%s' % (animalID, self.figformat))
 			fig.savefig(figpath)
 			ax.cla();
 
@@ -556,7 +568,7 @@ class GapAnalysis(object):
 				ax.legend()
 
 				# save out figure
-				figname = 'single_subject_dailyresults_%s_%s.png' % (animal, ix)
+				figname = 'single_subject_dailyresults_%s_%s.%s' % (animal, ix, self.figformat)
 				fig.savefig(os.path.join(self.figdir, figname))
 
 				ax.cla()
@@ -577,7 +589,7 @@ class GapAnalysis(object):
 				Gap.plot_startleampl(df, ax)
 				ax.set_ylim([0, 8])
 				ax.set_title(os.path.split(fname)[1])
-			figpath = os.path.join(self.figdir, 'startleampl_%s.png' % animalID)
+			figpath = os.path.join(self.figdir, 'startleampl_%s.%s' % (animalID, self.figformat))
 			fig.savefig(figpath)
 			fig.clf();
 
