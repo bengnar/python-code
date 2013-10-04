@@ -14,10 +14,10 @@ colors = dict(control = 'k', salicylate = 'r', prenihl = 'k', postnihl = 'g', po
 lss = dict(control = '-', salicylate = '--', prenihl = '-', postnihl = '--', postnihl5d = '--', thalid = '--', vehicle = '--', \
 	preinjection = '-', preinjectiontnfa = '-', preinjectionvehicle = '-', pre = '-', tnfa = '--', thalidwashout = '--', vehiclewashout = '--')
 
-def nanmean(ser):
+def agg_nanmean(ser):
 	return np.mean(ser[~pd.isnull(ser)])
 
-def nansem(ser):
+def agg_nansem(ser, axis=0):
 	return st.sem(ser[~pd.isnull(ser)])
 
 class GapAnalysis(object):
@@ -114,9 +114,9 @@ class GapAnalysis(object):
 		df['postdate_bin'] = pd.cut(df.postdate1, bins=bins)
 		gp = df.groupby(('animalID', 'freq', 'postdate_bin'))
 		
-		condmean = gp.gapratio.agg(nanmean).unstack('postdate_bin')
-		condmean = gp.agg(dict(gapratio=nanmean, condition=misc.get_first)).unstack('postdate_bin')
-		condsem = gp.agg(dict(gapratio=nansem, condition=misc.get_first)).unstack('postdate_bin')
+		condmean = gp.gapratio.agg(agg_nanmean).unstack('postdate_bin')
+		condmean = gp.agg(dict(gapratio=agg_nanmean, condition=misc.get_first)).unstack('postdate_bin')
+		condsem = gp.agg(dict(gapratio=agg_nansem, condition=misc.get_first)).unstack('postdate_bin')
 
 		animals = np.unique(df.animalID)
 		fig, ax = plt.subplots()
@@ -163,8 +163,8 @@ class GapAnalysis(object):
 		gapdiff['freq'] = gapdiff.index.get_level_values('freq')
 
 		condgp = gapdiff.groupby(('condition', 'freq'))
-		condmean = condgp.agg(nanmean)
-		condsem = condgp.agg(nansem)
+		condmean = condgp.agg(agg_nanmean)
+		condsem = condgp.agg(agg_nansem)
 
 
 
@@ -207,8 +207,8 @@ class GapAnalysis(object):
 		gapdiff['condition'] = cond
 
 		condgp = gapdiff.groupby('condition')
-		condmean = condgp.agg(nanmean)
-		condsem = condgp.agg(nansem)
+		condmean = condgp.agg(agg_nanmean)
+		condsem = condgp.agg(agg_nansem)
 
 		styles = dict(tnfa=dict(color='r', hatch='///'), vehicle=dict(color='b', hatch=None))
 		x = 2*np.arange(len(condmean.columns))
@@ -334,63 +334,63 @@ class GapAnalysis(object):
 		ax.set_xlim([0, 3])
 
 
-def compare_conditions_pairwise_wrong():
-	''' check this'''
+	def compare_conditions_pairwise_wrong():
+		''' check this'''
 
-	# make condition-wise groups
-	condgp = animalmeans.groupby(level = ('condition', 'freq'))
-	condmeans = condgp.gapratio.apply(np.mean)
-	condsems = condgp.gapratio.apply(st.sem)
-	# since we'll compare each of the groups to the "control" group
-	# let's separate control from manipulations
-	condmean_control = condmeans[control]
-	condsem_control = condsems[control]
-	condmean_manip = condmeans.select(lambda x: x != control)
-	condsem_manip = condsems.select(lambda x: x != control)
-	
-	animalIDs = zip(*animalmeans.index)[0]
+		# make condition-wise groups
+		condgp = animalmeans.groupby(level = ('condition', 'freq'))
+		condmeans = condgp.gapratio.apply(np.mean)
+		condsems = condgp.gapratio.apply(st.sem)
+		# since we'll compare each of the groups to the "control" group
+		# let's separate control from manipulations
+		condmean_control = condmeans[control]
+		condsem_control = condsems[control]
+		condmean_manip = condmeans.select(lambda x: x != control)
+		condsem_manip = condsems.select(lambda x: x != control)
+		
+		animalIDs = zip(*animalmeans.index)[0]
 
-	styles = dict(tnfa=dict(ls='-', marker='^', mfc=[0.2, 0.2, 0.2]),
-		vehicle=dict(ls='--', marker='o', mfc='w'),
-		prenihl={'ls': '-', 'marker': '.', 'mfc': 'lightgray'},
-		postnihl={'ls': '--', 'marker': '.', 'mfc': 'darkgray'},
-		thalid1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-		thalid2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-		vehicle1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-		vehicle2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-		thalidwashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-		thalidwashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-		vehiclewashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
-		vehiclewashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'})
+		styles = dict(tnfa=dict(ls='-', marker='^', mfc=[0.2, 0.2, 0.2]),
+			vehicle=dict(ls='--', marker='o', mfc='w'),
+			prenihl={'ls': '-', 'marker': '.', 'mfc': 'lightgray'},
+			postnihl={'ls': '--', 'marker': '.', 'mfc': 'darkgray'},
+			thalid1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+			thalid2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+			vehicle1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+			vehicle2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+			thalidwashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+			thalidwashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+			vehiclewashout1={'ls': '-', 'marker': '.', 'mfc': 'gray'},
+			vehiclewashout2={'ls': '-', 'marker': '.', 'mfc': 'gray'})
 
-	fig = plt.figure(figsize = (4, 8)); ax = fig.add_subplot(111)
-	
-	for animalID in animalIDs:
+		fig = plt.figure(figsize = (4, 8)); ax = fig.add_subplot(111)
+		
+		for animalID in animalIDs:
 
-		animalmean = animalmeans.ix[animalID]
-		comparemean = animalmean.select(lambda x: x != control)
-		compare = comparemean.index[0]
+			animalmean = animalmeans.ix[animalID]
+			comparemean = animalmean.select(lambda x: x != control)
+			compare = comparemean.index[0]
 
-		ycontrol = animalmean.ix[control].values[0]
-		ycompare = comparemean.ix[compare].values[0]
+			ycontrol = animalmean.ix[control].values[0]
+			ycompare = comparemean.ix[compare].values[0]
 
-		ax.plot([0.3, 0.7], [ycontrol, ycompare], '.-', color = 'k', \
-			linestyle = styles[compare]['ls'], marker = styles[compare]['marker'], \
-			mfc = styles[compare]['mfc'], markersize = 10)
-	
-	barwidth = 0.2
-	ax.bar(0, condmean_control, yerr = condsem_control, width = barwidth, color = 'w', ecolor = 'k')
-	for j, ((i, y), (i, yerr)) in enumerate(zip(condmean_manip.iteritems(), condsem_manip.iteritems())):
-		ax.bar(0.8+j*barwidth, y, yerr = yerr, width = barwidth, color = 'w', ecolor = 'k', facecolor = styles[i]['mfc'], label = i)
+			ax.plot([0.3, 0.7], [ycontrol, ycompare], '.-', color = 'k', \
+				linestyle = styles[compare]['ls'], marker = styles[compare]['marker'], \
+				mfc = styles[compare]['mfc'], markersize = 10)
+		
+		barwidth = 0.2
+		ax.bar(0, condmean_control, yerr = condsem_control, width = barwidth, color = 'w', ecolor = 'k')
+		for j, ((i, y), (i, yerr)) in enumerate(zip(condmean_manip.iteritems(), condsem_manip.iteritems())):
+			ax.bar(0.8+j*barwidth, y, yerr = yerr, width = barwidth, color = 'w', ecolor = 'k', facecolor = styles[i]['mfc'], label = i)
 
-	ax.set_xticks([]); #ax.set_xticklabels([control[:5], 'manip'])
-	ax.set_ylabel('Gap ratio')
-	ax.set_xlim([-0.1, 1.3]); ax.set_ylim([0, 1])
-	ax.legend()
+		ax.set_xticks([]); #ax.set_xticklabels([control[:5], 'manip'])
+		ax.set_ylabel('Gap ratio')
+		ax.set_xlim([-0.1, 1.3]); ax.set_ylim([0, 1])
+		ax.legend()
 
-	fig.subplots_adjust(left = 0.2)
-	figpath = os.path.join(self.studydir, 'Analysis', 'compare_conditions_pairwise_%s.png' % control)
-	fig.savefig(figpath)
+		fig.subplots_adjust(left = 0.2)
+		figpath = os.path.join(self.studydir, 'Analysis', 'compare_conditions_pairwise_%s.png' % control)
+		fig.savefig(figpath)
 
 	def compare_conditions_by_postdate1(self):
 
@@ -542,41 +542,51 @@ def compare_conditions_pairwise_wrong():
 
 		return fig
 
-	def single_subject_dailyresults(self, condition='all', cond_color=True):
+	def single_subject_dailyresults(self):
+		'''
+		For each condition, plots the daily results and a condition mean
+		'''
 
-		if condition=='all':
-			conddf = self.df
-		else:
-			conddf = self.df[self.df.condition==condition]
+		df = self.df
+		df['postdate_bin'] = pd.cut(df.postdate1, bins=[-100, 0, 2, 4, 6])
+		df['condition_postdate'] = df.condition+df.postdate_bin
+		
+		animals = np.unique(df.animalID).values
+		ufreqs = np.unique(df.freq).values
+		x = range(len(ufreqs))
 
-		fig = plt.figure(figsize = (6, 6));
-		ax = fig.add_subplot(111);
-		for animalID in self.animalIDs:
-			
-			df = conddf[conddf.animalID==animalID]
+		fig, ax = plt.subplots()
+		for animal in animals:
+		
+			animaldf = df[df.animalID==animal]
 
-			if len(df)==0: continue
+			sessdf = animaldf.filter(['freq', 'gapratio', 'postdate1'])
+			sessgapratio = sessdf.pivot(index='freq', columns='postdate1', values='gapratio')
 
-			ufreqs = np.unique(df.freq).values
-			x = range(len(ufreqs))
-			sessgp = df.groupby('sess')
+			condgp = animaldf.groupby('condition_postdate')
 
-			for j, (i, g) in enumerate(sessgp):
-				if cond_color:
-					color = colors[g.condition[0]]
-				else:
-					color = np.array(color_cycle)[(j%len(color_cycle))]
-				ax.plot(x, g.gapratio, marker = '.', color = color, label = i)
+			for ix, gp in condgp:
+				sessgapratio = gp.pivot(index='freq', columns='sess', values='gapratio')
+				for i, y in sessgapratio.iteritems():
+					ax.plot(x, y, marker='.', label=i)
+				ax.plot(x, st.nanmean(sessgapratio, axis=1), c='k', lw=2, marker='.')
+				# misc.errorfill(x, st.nanmean(sessgapratio, 1), yerr=st.nanstd(sessgapratio, 1), c='k', lw=2, ax=ax)
+				
+				ax.set_title('%s: %s' % (animal, ix))
+				ax.set_xlim([0, len(x)-1]); ax.set_ylim([0., 1.4])
+				ax.axhline(1., c='r', ls='--')
+				ax.set_xticks(x)
+				ax.set_xticklabels((ufreqs/1000.).astype(int))
+				ax.set_xlabel('Frequency (kHz)'); ax.set_ylabel('Gap ratio')
+				ax.legend()
 
-			ax.set_title('%s: %s' % (animalID, condition))
-			ax.set_xticks(x)
-			ax.set_xticklabels(ufreqs)
-			ax.legend(loc = 'upper left')
-			self.format_axis(ax)
+				plt.show()
 
-			figpath = os.path.join(self.studydir, 'Analysis', 'dailyresults_%s_%s.png' % (condition, animalID))
-			fig.savefig(figpath)
-			ax.cla();
+				# save out figure
+				figname = 'single_subject_dailyresults2_%s_%s.png' % (animal, ix)
+				fig.savefig(os.path.join(self.studydir, 'Analysis', figname))
+
+				ax.cla()
 
 	def single_subject_startleampl(self):
 
