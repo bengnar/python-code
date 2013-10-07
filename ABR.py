@@ -1,9 +1,11 @@
 import os, re
 from glob import glob
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
 import misc
+
 
 class ABRAnalysis(object):
 
@@ -11,74 +13,39 @@ class ABRAnalysis(object):
 
 		self.basedir = basedir
 		self.savedir= os.path.join(basedir, 'Analysis')
+		
 		if not os.path.exists(self.savedir):
 			os.mkdir(self.savedir)
+		# load all of the ABR files in the fileconversion folder
+		self.fpaths = glob(os.path.join(self.basedir, 'fileconversion', '*.npz'))
 
-		dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('animal', 'i4'), ('freq', 'f4'), ('atten', 'f4'), ('lat', '5f4'), ('ampl', '5f4')])
+		# dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('animal', 'i4'), ('freq', 'f4'), ('atten', 'f4'), ('lat', '5f4'), ('ampl', '5f4')])
 
 		plt_opts = {'wt' : {'color' : 'b', 'x_offset' : 0, 'y_offset' : 0.00001}, 'ko' : {'color' : 'r', 'x_offset' : 0.09, 'y_offset' : 0}}
 
-	def manual_threshold_all():
-		
-		# load all of the ABR files in the fileconversion folder
-		fpaths = glob(os.path.join(basedir, 'fileconversion', '*.npz'))
-		
-		# shuffle the files to prevent experimenter bias
-		fpaths = np.array(fpaths)
-		fpaths = fpaths[np.random.permutation(fpaths.size)]
-			
-		fig, ax = plt.subplots(1, 1, figsize = [8.3875,  8.825])
-		fig.subplots_adjust(bottom = 0, top = 1, right = 1)
-		
-		for fpath in fpaths:
-			d = np.load(fpath)['arr_0']
-			manual_threshold(d, ax = ax)
-			
-	def manual_peaks_all():
+	def manual_threshold(self, d, ax = None):
+		'''
+		Takes a np.array of data for one ABR run (one animal), plots the
+		average traces for each attenuation (frequencies separately) in a
+		vertical stack for simple discernment of the ABR threshold.
 
-		fig = plt.figure(figsize = [8.3875,  8.825])
-		fig.subplots_adjust(bottom = 0.04, top = 0.96, right = 1)
-		ax = fig.add_subplot(111)
+		The user enters the actual attenuation (displayed in the legend) into
+		a raw_input prompt in the terminal.
 
-		fpaths = glob(os.path.join(basedir, 'fileconversion', '*.npz'))
-		for fpath in fpaths:
-			d = np.load(fpath)['arr_0']
-			manual_peaks(d, ax)
-			
-			
-	def plot_abr_attens(t, abr, attens, y_offset_mag = 0.0003, ax = None, **kwargs):
-		
-		ax, fig = misc.axis_check(ax)
-		
-		nattens = abr.shape[1]
-		nsamples = t.size
-		# abr = abr - np.tile(abr[0, :], (nsamples, 1))
-		y_offset = np.tile(np.linspace(y_offset_mag, 0, nattens), (nsamples, 1))
-		
-		abr = abr + y_offset
-
-		ax.plot(t, abr, **kwargs)
-		ax.legend(attens)
-		
-		plt.show()
-
-	def manual_threshold(d, ax = None):
-
+		Output is saved to a comma-separated value file
+		'''
 		# make a figure if none exists
 		if ax is None: fig, ax = plt.subplots(1, 1)
 		
 		# construct the output path
 		savepath = os.path.join(self.basedir, 'thresholds.csv')
 		
-		
-		dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('animal', 'i4'), ('freq', 'f4'), ('thresh', 'f4')])
-
 		# if the path already exists, load it
 		if os.path.exists(savepath):
-			threshold = np.load(savepath)['arr_0']
+			df = pd.read_csv(savepath, index_col=0)
 		# else initialize threshold to be empty
 		else:
-			threshold = np.empty(0, dtype = dtype)
+			df = pd.DataFrame(columns=['gen', 'exp', 'animal', 'freq', 'thresh'])
 
 		ufreqs = np.unique(d['freq'])
 		nsamples = 244
@@ -91,20 +58,69 @@ class ABRAnalysis(object):
 			d_ = d[d['freq']==freq]
 			
 			nattens = d_.size
-			y = filter_abr(d_['data'].T)
+			y = self.filter_abr(d_['data'].T)
 
-			plot_abr_attens(t, y, d_['atten'], ax = ax)
+			self.plot_abr_attens(t, y, d_['atten'], ax = ax)
 			
 			thresh = int(raw_input('Threshold--> '))
 			
 			ax.cla()
 			
-			threshold.resize(threshold.size+1)
-			threshold[-1] = np.array((d_['gen'][0], d_['exp'][0], d_['animal'][0], freq, thresh), dtype = dtype)
+			df = df.append(dict(gen=d_['gen'][0],
+				exp=d_['exp'][0],
+				animal=d_['animal'][0],
+				freq=freq,
+				thresh=thresh), ignore_index=True)
 
-		np.savez(savepath, threshold)
+		df.to_csv(savepath)
 
-	def manual_peaks(D, ax):
+	def manual_threshold_all(self):
+		
+		# shuffle the files to prevent experimenter bias
+		fpaths = np.array(self.fpaths)
+		fpaths = fpaths[np.random.permutation(fpaths.size)]
+			
+		fig, ax = plt.subplots(1, 1, figsize = [8.3875,  8.825])
+		fig.subplots_adjust(bottom = 0, top = 1, right = 1)
+		
+		for fpath in fpaths:
+			d = np.load(fpath)['arr_0']
+			self.manual_threshold(d, ax = ax)
+			
+	def manual_peaks_all(self):
+
+		fig = plt.figure(figsize = [8.3875,  8.825])
+		fig.subplots_adjust(bottom = 0.04, top = 0.96, right = 1)
+		ax = fig.add_subplot(111)
+
+		fpaths = glob(os.path.join(basedir, 'fileconversion', '*.npz'))
+		for fpath in fpaths:
+			d = np.load(fpath)['arr_0']
+			manual_peaks(d, ax)
+			
+	
+	def pick_event(self, event):
+
+
+
+	def plot_abr_attens(self, t, abr, attens, y_offset_mag = 0.0003, ax = None, **kwargs):
+		
+		if ax is None: fig, ax = plt.subplots(1, 1)
+		
+		nattens = abr.shape[1]
+		nsamples = t.size
+
+		y_offset = np.tile(np.linspace(y_offset_mag, 0, nattens), (nsamples, 1))
+		
+		abr = abr + y_offset
+
+		ax.plot(t, abr, **kwargs)
+		ax.legend(attens)
+		plt.draw()
+		plt.show()
+
+
+	def manual_peaks(self, D, ax):
 
 		savepath = os.path.join(basedir, 'peaks.npz')
 		dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('animal', 'i4'), ('freq', 'f4'), ('attens', '2f4'), ('peaks', '(2,5)f4')])
@@ -163,8 +179,7 @@ class ABRAnalysis(object):
 
 		np.savez(savepath, peaks)
 
-
-	def convert_all():
+	def convert_all(self):
 		
 		fpaths = glob(os.path.join(basedir, 'data', '*.txt'))
 
@@ -173,12 +188,15 @@ class ABRAnalysis(object):
 			print fpath
 			convert(fpath)
 
-	def convert(fpath):
+	def convert(self, fpath):
 
+		# unpack the file path
 		relat, absol = os.path.split(fpath)
 		fname_, _ = os.path.splitext(absol)
+		# get the animal info from the file path
 		gen, exp, animal = fname_.split('_')
 		
+		# parse the ABR text output
 		x = open(fpath)
 		x = x.readlines()
 		x = x[13:]
@@ -207,8 +225,7 @@ class ABRAnalysis(object):
 		savepath = os.path.join(basedir, 'data', '_'.join((gen, exp, str(animal), 'ABR'))+'.npz')
 		np.savez(savepath, X)
 		
-
-	def filter_abr(x, duration = 0.00999424, nsamples = 244, Wn = 0.02, btype = 'high'):
+	def filter_abr(self, x, duration = 0.00999424, nsamples = 244, Wn = 0.02, btype = 'high'):
 
 		b, a = butter(10, Wn = Wn, btype = btype)
 		if len(x.shape)==1:
@@ -219,7 +236,7 @@ class ABRAnalysis(object):
 				x_filt[:, i] = filtfilt(b, a, x[:, i])
 		return x_filt
 
-	def plot_peak_gen_vs_exp(x, measure = 'ampl'):
+	def plot_peak_gen_vs_exp(self, x, measure = 'ampl'):
 		'''
 		'''
 		gens = ['wt', 'ko']
@@ -263,7 +280,7 @@ class ABRAnalysis(object):
 
 		plt.show()	
 
-	def plot_threshold_gen_vs_exp(x):
+	def plot_threshold_gen_vs_exp(self, x):
 		'''
 		'''
 		gens = ['wt', 'ko']
@@ -300,7 +317,7 @@ class ABRAnalysis(object):
 
 		plt.show()	
 
-	def calc_latency_delay():
+	def calc_latency_delay(self):
 
 		dtype = dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('animal', 'i4'), ('freq', 'f4'), ('atten', 'f4'), ('lat', '5f4'), ('lat_del', '5f4'), ('ampl', '5f4')])
 		
@@ -311,5 +328,46 @@ class ABRAnalysis(object):
 			x2[-1] = np.array((x_['gen'], x_['exp'], x_['animal'], x_['freq'], x_['atten'], x_['lat'], lat_del, x_['ampl']), dtype = dtype)
 
 		np.savez(os.path.join(basedir, 'peaks.npz'), x2)
+
+class plotABRAttens(object):
+
+	def __init__(self, t, abr, attens, y_offset_mag, ax=None):
+
+		if ax is None: fig, ax = plt.subplots(1, 1)
+		else:
+			fig = ax.get_figure()
+
+		self.fig = fig
+		self.ax = ax
+
+		self.abr = abr
+		self.attens = attens
+		
+		nattens = abr.shape[1]
+		nsamples = t.size
+
+		y_offset = np.tile(np.linspace(y_offset_mag, 0, nattens), (nsamples, 1))
+		
+		abr = abr + y_offset
+
+		self.line = ax.plot(t, abr, picker=5)
+		ax.legend(self.attens)
+
+		self.fig.canvas.mpl_connect('pick_event', self.picker_event)
+		
+		plt.draw()
+		plt.show()
+
+
+	def picker_event(self, event):
+		print event.ind
+		# if event.artist != self.line: return True
+		
+		# N = len(event.ind())
+		
+		# if not N: return True
+
+		# self.attens[event.ind[0]]
+
 
 
