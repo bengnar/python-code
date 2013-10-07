@@ -23,6 +23,30 @@ class ABRAnalysis(object):
 
 		plt_opts = {'wt' : {'color' : 'b', 'x_offset' : 0, 'y_offset' : 0.00001}, 'ko' : {'color' : 'r', 'x_offset' : 0.09, 'y_offset' : 0}}
 
+	def manual_peaks_all(self):
+
+		fig = plt.figure(figsize = [8.3875,  8.825])
+		fig.subplots_adjust(bottom = 0.04, top = 0.96, right = 1)
+		ax = fig.add_subplot(111)
+
+		fpaths = glob(os.path.join(basedir, 'fileconversion', '*.npz'))
+		for fpath in fpaths:
+			d = np.load(fpath)['arr_0']
+			manual_peaks(d, ax)
+
+	def manual_threshold_all(self):
+		
+		# shuffle the files to prevent experimenter bias
+		fpaths = np.array(self.fpaths)
+		fpaths = fpaths[np.random.permutation(fpaths.size)]
+			
+		fig, ax = plt.subplots(1, 1, figsize = [8.3875,  8.825])
+		fig.subplots_adjust(bottom = 0, top = 1, right = 1)
+		
+		for fpath in fpaths[:1]:
+			d = np.load(fpath)['arr_0']
+			self.manual_threshold(d, ax = ax)
+	
 	def manual_threshold(self, d, ax = None):
 		'''
 		Takes a np.array of data for one ABR run (one animal), plots the
@@ -54,17 +78,15 @@ class ABRAnalysis(object):
 		t = np.arange(0, duration, 1./sample_rate)
 
 		for freq in ufreqs:
-
+			print freq
 			d_ = d[d['freq']==freq]
 			
 			nattens = d_.size
 			y = self.filter_abr(d_['data'].T)
 
-			self.plot_abr_attens(t, y, d_['atten'], ax = ax)
-			
-			thresh = int(raw_input('Threshold--> '))
-			
-			ax.cla()
+			paa = plotABRAttens(t, y, d_['atten'])
+			thresh = paa.thresh
+			# thresh = int(raw_input('Threshold--> '))
 			
 			df = df.append(dict(gen=d_['gen'][0],
 				exp=d_['exp'][0],
@@ -73,52 +95,6 @@ class ABRAnalysis(object):
 				thresh=thresh), ignore_index=True)
 
 		df.to_csv(savepath)
-
-	def manual_threshold_all(self):
-		
-		# shuffle the files to prevent experimenter bias
-		fpaths = np.array(self.fpaths)
-		fpaths = fpaths[np.random.permutation(fpaths.size)]
-			
-		fig, ax = plt.subplots(1, 1, figsize = [8.3875,  8.825])
-		fig.subplots_adjust(bottom = 0, top = 1, right = 1)
-		
-		for fpath in fpaths:
-			d = np.load(fpath)['arr_0']
-			self.manual_threshold(d, ax = ax)
-			
-	def manual_peaks_all(self):
-
-		fig = plt.figure(figsize = [8.3875,  8.825])
-		fig.subplots_adjust(bottom = 0.04, top = 0.96, right = 1)
-		ax = fig.add_subplot(111)
-
-		fpaths = glob(os.path.join(basedir, 'fileconversion', '*.npz'))
-		for fpath in fpaths:
-			d = np.load(fpath)['arr_0']
-			manual_peaks(d, ax)
-			
-	
-	def pick_event(self, event):
-
-
-
-	def plot_abr_attens(self, t, abr, attens, y_offset_mag = 0.0003, ax = None, **kwargs):
-		
-		if ax is None: fig, ax = plt.subplots(1, 1)
-		
-		nattens = abr.shape[1]
-		nsamples = t.size
-
-		y_offset = np.tile(np.linspace(y_offset_mag, 0, nattens), (nsamples, 1))
-		
-		abr = abr + y_offset
-
-		ax.plot(t, abr, **kwargs)
-		ax.legend(attens)
-		plt.draw()
-		plt.show()
-
 
 	def manual_peaks(self, D, ax):
 
@@ -329,38 +305,7 @@ class ABRAnalysis(object):
 
 		np.savez(os.path.join(basedir, 'peaks.npz'), x2)
 
-class plotABRAttens(object):
 
-	def __init__(self, t, abr, attens, y_offset_mag, ax=None):
-
-		if ax is None: fig, ax = plt.subplots(1, 1)
-		else:
-			fig = ax.get_figure()
-
-		self.fig = fig
-		self.ax = ax
-
-		self.abr = abr
-		self.attens = attens
-		
-		nattens = abr.shape[1]
-		nsamples = t.size
-
-		y_offset = np.tile(np.linspace(y_offset_mag, 0, nattens), (nsamples, 1))
-		
-		abr = abr + y_offset
-
-		self.line = ax.plot(t, abr, picker=5)
-		ax.legend(self.attens)
-
-		self.fig.canvas.mpl_connect('pick_event', self.picker_event)
-		
-		plt.draw()
-		plt.show()
-
-
-	def picker_event(self, event):
-		print event.ind
 		# if event.artist != self.line: return True
 		
 		# N = len(event.ind())
@@ -368,6 +313,65 @@ class plotABRAttens(object):
 		# if not N: return True
 
 		# self.attens[event.ind[0]]
+
+class plotABRAttens(object):
+	'''
+	A simple interactive class for manually marking the
+	ABR threshold. A figure showing the average ABR trace
+	will appear. The user is expected to click on the red
+	dot corresponding to the threshold dB SPL. If no
+	threshold is present, the user can click the red dot
+	at the bottom of the figure.
+	'''
+	def __init__(self, t, abr, attens, y_offset_mag=0.0003):
+		'''
+		t : time points of ABR samples
+		abr : array of ABR traces (ntraces x nsamples)
+		attens : the attenuation for each of the ntraces
+		y_offset_mag : amplitude of offset for displaying
+			multiple ABR traces on one plot
+		'''
+
+		# initialize figure
+		self.fig, self.ax = plt.subplots(1, 1, figsize = (14, 8))
+
+		# incorporate attens
+		self.attens = attens
+		
+		# offset abr by y_offset_mag for plotting
+		nattens = abr.shape[1]
+		nsamples = t.size
+		y_offset = np.tile(np.linspace(y_offset_mag, 0, nattens), (nsamples, 1))
+		abr = abr + y_offset
+
+		# plot offset abr
+		ax.plot(t, abr)
+		# plot big red dots for UI
+		ax.plot(np.zeros(nattens+1), np.hstack((abr[0, :], -y_offset_mag/nattens)), 'ro', ms=10, picker=5)
+		ax.legend(self.attens)
+
+		# draw
+		plt.draw()
+		plt.show()
+
+		# connect to event handler
+		self.fig.canvas.mpl_connect('pick_event', self.picker_event)
+		# pause program execution for user input
+		self.fig.canvas.start_event_loop(timeout=-1)
+
+	def picker_event(self, event):
+		if len(event.ind)>1:
+			print 'More than one trace selected!'
+
+		try:
+			print self.attens[event.ind[0]]
+			self.thresh = self.attens[event.ind[0]]
+		except IndexError:
+			print np.nan
+			self.thresh = np.nan
+
+		plt.close(self.fig)
+		self.fig.canvas.stop_event_loop()
 
 
 
