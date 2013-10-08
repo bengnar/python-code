@@ -57,7 +57,7 @@ class ABRAnalysis(object):
 		fig, ax = plt.subplots(1, 1, figsize = [8.3875,  8.825])
 		fig.subplots_adjust(bottom = 0, top = 1, right = 1)
 		
-		for fpath in fpaths[:1]:
+		for fpath in fpaths:
 			d = np.load(fpath)['arr_0']
 			self.manual_threshold(d, ax = ax)
 	
@@ -80,10 +80,12 @@ class ABRAnalysis(object):
 		
 		# if the path already exists, load it
 		if os.path.exists(savepath):
-			df = pd.read_csv(savepath, index_col=0)
+			print 'Thresholds already calculated and saved in %s' % savepath
+			print 'Delete this file if you want to relabel the thresholds.'
+			return
+			# df = pd.read_csv(savepath, index_col=0)
 		# else initialize threshold to be empty
-		else:
-			df = pd.DataFrame(columns=['gen', 'exp', 'animal', 'freq', 'thresh'])
+		df = pd.DataFrame(columns=['gen', 'exp', 'animal', 'freq', 'thresh'])
 
 		ufreqs = np.unique(d['freq'])
 		nsamples = 244
