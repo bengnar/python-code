@@ -6,16 +6,30 @@ import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
 import misc
 
-
 class ABRAnalysis(object):
+	'''
+	A class dealing with analysis of ABR data.
+	
+	Initialize using:
+	
+		abr = ABR.ABRAnalysis(basedir)
+
+	where 'basedir' is the full path to a folder containing these direcories
+		'data' : containing raw text file outputs from SigGen
+		'fileconversion' : made following ABRAanalysis.convert_all
+			containing the text files converted to '.npz' files
+		'Analysis' : where all analysis files will be saved
+		'Figures' : where all analysis figures will be saved
+
+	'''
 
 	def __init__(self, basedir):
 
 		self.basedir = basedir
 		self.savedir= os.path.join(basedir, 'Analysis')
 		
-		if not os.path.exists(self.savedir):
-			os.mkdir(self.savedir)
+		self._checkDirectories()
+
 		# load all of the ABR files in the fileconversion folder
 		self.fpaths = glob(os.path.join(self.basedir, 'fileconversion', '*.npz'))
 
@@ -29,7 +43,7 @@ class ABRAnalysis(object):
 		fig.subplots_adjust(bottom = 0.04, top = 0.96, right = 1)
 		ax = fig.add_subplot(111)
 
-		fpaths = glob(os.path.join(basedir, 'fileconversion', '*.npz'))
+		fpaths = glob(os.path.join(self.basedir, 'fileconversion', '*.npz'))
 		for fpath in fpaths:
 			d = np.load(fpath)['arr_0']
 			manual_peaks(d, ax)
@@ -62,7 +76,7 @@ class ABRAnalysis(object):
 		if ax is None: fig, ax = plt.subplots(1, 1)
 		
 		# construct the output path
-		savepath = os.path.join(self.basedir, 'thresholds.csv')
+		savepath = os.path.join(self.basedir, 'Analysis', 'thresholds.csv')
 		
 		# if the path already exists, load it
 		if os.path.exists(savepath):
@@ -98,7 +112,7 @@ class ABRAnalysis(object):
 
 	def manual_peaks(self, D, ax):
 
-		savepath = os.path.join(basedir, 'peaks.npz')
+		savepath = os.path.join(self.basedir, 'peaks.npz')
 		dtype = np.dtype([('gen', 'S2'), ('exp', 'S3'), ('animal', 'i4'), ('freq', 'f4'), ('attens', '2f4'), ('peaks', '(2,5)f4')])
 
 		if os.path.exists(savepath):
@@ -157,12 +171,12 @@ class ABRAnalysis(object):
 
 	def convert_all(self):
 		
-		fpaths = glob(os.path.join(basedir, 'data', '*.txt'))
+		fpaths = glob(os.path.join(self.basedir, 'data', '*.txt'))
 
 		for fpath in fpaths:
 			
 			print fpath
-			convert(fpath)
+			self.convert(fpath)
 
 	def convert(self, fpath):
 
@@ -198,7 +212,7 @@ class ABRAnalysis(object):
 
 			x = x[12+npts+1:]
 
-		savepath = os.path.join(basedir, 'data', '_'.join((gen, exp, str(animal), 'ABR'))+'.npz')
+		savepath = os.path.join(self.basedir, 'fileconversion', '_'.join((gen, exp, str(animal), 'ABR'))+'.npz')
 		np.savez(savepath, X)
 		
 	def filter_abr(self, x, duration = 0.00999424, nsamples = 244, Wn = 0.02, btype = 'high'):
@@ -303,16 +317,19 @@ class ABRAnalysis(object):
 			x2.resize(x2.size+1)
 			x2[-1] = np.array((x_['gen'], x_['exp'], x_['animal'], x_['freq'], x_['atten'], x_['lat'], lat_del, x_['ampl']), dtype = dtype)
 
-		np.savez(os.path.join(basedir, 'peaks.npz'), x2)
+		np.savez(os.path.join(self.basedir, 'peaks.npz'), x2)
 
-
-		# if event.artist != self.line: return True
-		
-		# N = len(event.ind())
-		
-		# if not N: return True
-
-		# self.attens[event.ind[0]]
+	def _checkDirectories(self):
+		'''
+		Makes sure the correct directory tree is in place within the base directory.
+		'''
+		subdirs = ['data', 'fileconversion', 'Analysis', 'Figures']
+		for subdir in subdirs:
+			directory = os.path.join(self.basedir, subdir)
+			if not os.path.exists(directory):
+				os.mkdir(directory)
+				print 'Folder %s did not exist...' % subdir
+				print 'Creating %s' % directory
 
 class plotABRAttens(object):
 	'''
@@ -322,15 +339,17 @@ class plotABRAttens(object):
 	dot corresponding to the threshold dB SPL. If no
 	threshold is present, the user can click the red dot
 	at the bottom of the figure.
-	'''
-	def __init__(self, t, abr, attens, y_offset_mag=0.0003):
-		'''
+
+	Initialize using:
 		t : time points of ABR samples
 		abr : array of ABR traces (ntraces x nsamples)
 		attens : the attenuation for each of the ntraces
 		y_offset_mag : amplitude of offset for displaying
 			multiple ABR traces on one plot
-		'''
+
+	'''
+	def __init__(self, t, abr, attens, y_offset_mag=0.0003):
+
 
 		# initialize figure
 		self.fig, self.ax = plt.subplots(1, 1, figsize = (14, 8))
