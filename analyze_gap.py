@@ -24,8 +24,8 @@ class GapAnalysis(object):
 
 	def __init__(self, studyID=None, cageID=None):
 
-		# self.basedir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior'
-		self.basedir = '/Users/robert/Desktop'
+		self.basedir = '/Volumes/BOB_SAGET/TNFalpha/tinnitus/behavior'
+		# self.basedir = '/Users/robert/Desktop'
 		# studydir = os.path.join(self.basedir, studyID, cageID)
 		if (studyID is not None) and (cageID is not None):
 			self.select_study(studyID, cageID)
@@ -34,7 +34,7 @@ class GapAnalysis(object):
 		if not os.path.exists(self.figdir):
 			os.mkdir(self.figdir)
 
-		self.postdate_bins = [-100, 0, 2, 4, 6, 8, 10, 12]
+		self.postdate_bins = [-100, 0, 1, 2, 4, 6, 8, 10, 12]
 		self.load_experiment()
 		self.df = self.add_condition_postdate(self.df)
 		
@@ -65,9 +65,9 @@ class GapAnalysis(object):
 		animalmeans_control = animalgp_control.agg(dict(gapratio=np.mean))
 
 		df_manip = df[df.postdate1>0]
-		if bins is None:
-			bins = np.arange(df_manip.postdate1.min()-1, df_manip.postdate1.max()+1, 2)
-		df_manip['postdate_bin'] = pd.cut(df_manip.postdate1, bins=bins)
+		# if bins is None:
+		# 	bins = np.arange(df_manip.postdate1.min()-1, df_manip.postdate1.max()+1, 2)
+		# df_manip['postdate_bin'] = pd.cut(df_manip.postdate1, bins=bins)
 		postdategp = df_manip.groupby(('animalID', 'freq', 'postdate_bin'))
 		postdate_manip = postdategp.agg(dict(gapratio=np.mean)).unstack('postdate_bin')
 		
@@ -104,8 +104,9 @@ class GapAnalysis(object):
 		[a.set_ylim([-0.7, 0.7]) for a in axs]
 		[a.set_xticklabels(np.int32(ufreqs/1000)) for a in axs]
 		axs[0].set_ylabel('$\Delta$ Gap ratio')
-		[a.set_xlabel('Frequency (kHz') for a in axs]
+		[a.set_xlabel('Frequency (kHz)') for a in axs]
 		[a.axhline(0., c='k', ls='--') for a in axs]
+		fig.suptitle('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 		axs[-1].legend(loc='best')
 
 		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_conditions_by_day_by_freq.%s' % self.figformat))
@@ -132,9 +133,9 @@ class GapAnalysis(object):
 		animalmeans_control = animalgp_control.agg(dict(gapratio=np.mean))
 
 		df_manip = df[df.postdate1>0]
-		if bins is None:
-			bins = np.arange(df_manip.postdate1.min()-1, df_manip.postdate1.max()+1, 2)
-		df_manip['postdate_bin'] = pd.cut(df_manip.postdate1, bins=bins)
+		# if bins is None:
+			# bins = np.arange(df_manip.postdate1.min()-1, df_manip.postdate1.max()+1, 2)
+		# df_manip['postdate_bin'] = pd.cut(df_manip.postdate1, bins=bins)
 		postdategp = df_manip.groupby(('animalID', 'freq', 'postdate_bin'))
 		postdate_manip = postdategp.agg(dict(gapratio=np.mean)).unstack('postdate_bin')
 		
@@ -166,7 +167,7 @@ class GapAnalysis(object):
 		ax.set_xlabel('Days post injection')
 		ax.set_ylabel('Change in gap detection ratio')
 		ax.axhline(0, color = 'k')
-		ax.set_title(os.path.split(self.studydir)[1])
+		ax.set_title('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 
 		fig.savefig(os.path.join(self.figdir, 'pairwise_compare_condition_by_day.%s' % self.figformat))
 
@@ -279,6 +280,7 @@ class GapAnalysis(object):
 		for i, ((key, y), (_, yerr)) in enumerate(zip(condmeans.iteritems(), condsems.iteritems())):
 			ax.bar(i+0.6, y, yerr=yerr, width=0.8, hatch=styles[key]['hatch'], fill=False, ecolor='k', label=key)
 		ax.axhline(0, color='k')
+		ax.set_title('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 		ax.legend(loc='upper center')
 		ax.set_xlim([0, 3])
 
@@ -328,8 +330,9 @@ class GapAnalysis(object):
 		[a.set_ylim([0, 1.5]) for a in axs]
 		[a.set_xticklabels(np.int32(ufreqs/1000)) for a in axs]
 		axs[0].set_ylabel('Gap ratio')
-		[a.set_xlabel('Frequency (kHz') for a in axs]
+		[a.set_xlabel('Frequency (kHz)') for a in axs]
 		[a.axhline(1., c='r', ls='--') for a in axs]
+		fig.suptitle('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 		axs[-1].legend(loc='best')
 
 		figpath = os.path.join(self.figdir, 'group_compare_conditions_by_day.%s' % self.figformat)
@@ -359,8 +362,10 @@ class GapAnalysis(object):
 		ax.set_xlim([0, len(x)-1])
 		ax.set_xticklabels(np.int32(ufreqs/1000))
 		self.format_axis(ax)
+		ax.set_title('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 		ax.legend(loc='best')
-		ax.set_title('Start age: %u' % df.age.min())
+
+		
 
 		figpath = os.path.join(self.figdir, 'compare_conditions.%s' % self.figformat)
 		fig.savefig(figpath)
@@ -395,6 +400,7 @@ class GapAnalysis(object):
 			ax.set_xticks(x)
 			ax.set_xticklabels(np.int32(ufreqs/1000))
 			self.format_axis(ax)
+			ax.set_title('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 			ax.legend()
 
 			figpath = os.path.join(self.figdir, 'single_subject_compare_conditions_by_day_%s.%s' % (animalID, self.figformat))
@@ -427,6 +433,7 @@ class GapAnalysis(object):
 			ax.set_xticks(x)
 			ax.set_xticklabels(np.int32(ufreqs/1000))
 			self.format_axis(ax)
+			ax.set_title('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 			ax.legend()
 
 			figpath = os.path.join(self.figdir, 'single_subject_compareconditions_%s.%s' % (animalID, self.figformat))
@@ -473,6 +480,7 @@ class GapAnalysis(object):
 				ax.legend()
 
 				# save out figure
+				fig.suptitle('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 				figname = 'single_subject_dailyresults_%s_%s.%s' % (animal, ix, self.figformat)
 				fig.savefig(os.path.join(self.figdir, figname))
 
@@ -493,7 +501,7 @@ class GapAnalysis(object):
 				df = Gap.txt2pd(fname)
 				Gap.plot_startleampl(df, ax)
 				ax.set_ylim([0, 8])
-				ax.set_title(os.path.split(fname)[1])
+				ax.set_title('%s %s' % (self.studyID, os.path.split(self.studydir)[1]))
 			figpath = os.path.join(self.figdir, 'startleampl_%s.%s' % (animalID, self.figformat))
 			fig.savefig(figpath)
 			fig.clf();
@@ -512,7 +520,7 @@ class GapAnalysis(object):
 
 		if bins is None: bins = self.postdate_bins
 
-		df['postdate_bin'] = pd.cut(df.postdate1, bins=[-100, 0, 2, 4, 6, 8, 10])
+		df['postdate_bin'] = pd.cut(df.postdate1, bins=bins)
 		df['condition_postdate'] = df.condition+df.postdate_bin
 		return df
 
